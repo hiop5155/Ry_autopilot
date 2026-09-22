@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Railway Auto-Pilot - Smart Ticket Booking System</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="brand">
+        <span class="logo-icon">🚄</span>
+        <div class="brand-text">
+          <h1 data-i18n="app_title">Railway Smart Auto-Booking System</h1>
+          <span class="version-tag">Railway Auto-Pilot v2.0</span>
+        </div>
+      </div>
+      <div class="nav-right">
+        <!-- Language Switcher -->
+        <div class="lang-selector-wrap">
+          <span class="lang-icon">🌐</span>
+          <select id="langSelect" class="lang-dropdown">
+            <option value="zh-TW">繁體中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+          </select>
+        </div>
+        <div class="status-indicator" id="statusBadge">
+          <span class="dot"></span>
+          <span class="status-text" id="statusText" data-i18n="status_idle">System Idle</span>
+        </div>
+        <button id="viewHistoryBtn" class="btn btn-secondary">
+          <span data-i18n="nav_history">📜 Booking History</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="main-grid">
+      <!-- Left Column: Criteria Setting -->
+      <section class="card config-card">
+        <div class="card-header">
+          <h2 data-i18n="card1_title">1. Travel Itinerary Criteria</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <div class="label-row space-between">
+              <label for="pidInput" data-i18n="lbl_pid">Passenger ID</label>
+              <span id="pidStatus" class="pid-status"></span>
+            </div>
+            <div class="input-action-row">
+              <input type="text" id="pidInput" placeholder="A153457990" data-i18n-placeholder="pid_ph" maxlength="10">
+              <button type="button" id="genPidBtn" class="btn btn-secondary btn-sm" title="Generate valid random ID" data-i18n-title="title_gen_pid" data-i18n="btn_gen_pid">🎲 Generate</button>
+            </div>
+          </div>
+
+          <div class="station-swap-container">
+            <div class="form-row station-row">
+              <!-- Departure Combobox -->
+              <div class="form-group flex-1 combobox-group" id="startComboboxGroup">
+                <label for="startStationInput" data-i18n="lbl_start_station">Departure</label>
+                <div class="combobox-wrapper">
+                  <input type="text" id="startStationInput" class="combobox-input" placeholder="Station name or code"
+                    data-i18n-placeholder="start_station_ph" autocomplete="off">
+                  <input type="hidden" id="startStationSelect" value="1000">
+                  <button type="button" id="startStationToggleBtn" class="combobox-toggle-btn" tabindex="-1"
+                    title="Expand all stations" data-i18n-title="title_expand_stations">▾</button>
+                  <ul class="combobox-dropdown" id="startStationDropdown" style="display: none;"></ul>
+                </div>
+              </div>
+
+              <!-- Swap Stations Button -->
+              <div class="swap-btn-wrap">
+                <button type="button" id="swapStationsBtn" class="swap-btn" title="Swap departure and arrival stations" data-i18n-title="title_swap_stations">⇅</button>
+              </div>
+
+              <!-- Arrival Combobox -->
+              <div class="form-group flex-1 combobox-group" id="endComboboxGroup">
+                <label for="endStationInput" data-i18n="lbl_end_station">Arrival</label>
+                <div class="combobox-wrapper">
+                  <input type="text" id="endStationInput" class="combobox-input" placeholder="Station name or code"
+                    data-i18n-placeholder="end_station_ph" autocomplete="off">
+                  <input type="hidden" id="endStationSelect" value="1020">
+                  <button type="button" id="endStationToggleBtn" class="combobox-toggle-btn" tabindex="-1"
+                    title="Expand all stations" data-i18n-title="title_expand_stations">▾</button>
+                  <ul class="combobox-dropdown" id="endStationDropdown" style="display: none;"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="rideDateInput" data-i18n="lbl_ride_date">Travel Date</label>
+            <input type="date" id="rideDateInput">
+            <p class="field-hint" data-i18n="hint_booking_window_28d" style="margin-top: 6px; font-size: 11px; color: #94a3b8; line-height: 1.4;">📌 依官方規定，對號列車一般於乘車日前 28 天（00:00）開放預訂，國定連續假期會提前公布開賣（本系統不設限，均可正常設定與監控）。若非連續假期且超過 28 天，可能因官方尚未開賣而失敗。</p>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="startTimeSelect" data-i18n="lbl_start_time">Start Time</label>
+              <select id="startTimeSelect"></select>
+            </div>
+            <div class="form-group flex-1">
+              <label for="endTimeSelect" data-i18n="lbl_end_time">End Time (Max 8h)</label>
+              <select id="endTimeSelect"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="qtySelect" data-i18n="lbl_qty">Ticket Quantity</label>
+            <select id="qtySelect">
+              <option value="1" data-i18n="opt_qty_1">1 Ticket</option>
+              <option value="2" data-i18n="opt_qty_2">2 Tickets</option>
+              <option value="3" data-i18n="opt_qty_3">3 Tickets</option>
+              <option value="4" data-i18n="opt_qty_4">4 Tickets</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="splitModeGroup" style="display: none;">
+            <label for="splitModeSelect" data-i18n="lbl_split_mode">Booking Allocation Mode</label>
+            <select id="splitModeSelect">
+              <option value="single" data-i18n="opt_mode_single">Single Order (All in 1 booking)</option>
+              <option value="split" data-i18n="opt_mode_split">Split Orders (1 ticket per booking until N reached)</option>
+            </select>
+            <small class="form-hint" id="splitModeHint" style="display: block; margin-top: 5px; font-size: 11px; color: #10b981; line-height: 1.4;">
+              📌 Recommended: Grabs 1 seat whenever released until target is met.
+            </small>
+          </div>
+
+          <button id="queryTrainsBtn" class="btn btn-primary w-100" data-i18n="btn_query_trains">
+            🔍 Search Available Trains
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Column: Train Selection -->
+      <section class="card trains-card">
+        <div class="card-header space-between">
+          <h2 data-i18n="card2_title">2. Trains to Monitor</h2>
+          <div class="select-actions" id="selectActions" style="display: none;">
+            <button id="selectAllBtn" class="btn-link" data-i18n="btn_select_all">Select All</button>
+            <button id="clearAllBtn" class="btn-link" data-i18n="btn_clear_all">Clear All</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="trainsContainer" class="trains-list">
+            <div class="empty-state" id="emptyState">
+              <div class="empty-icon">🚆</div>
+              <p data-i18n="empty_state_desc">Please configure criteria on the left and search trains to load options.</p>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer" id="startActionFooter" style="display: none;">
+          <div class="selected-summary" id="selectedSummary" data-i18n="selected_all_trains">0 selected (will monitor all trains in time window)</div>
+          <div class="action-buttons">
+            <button id="startPollingBtn" class="btn btn-success btn-lg" data-i18n="btn_start_polling">
+              ⚡ Start Auto-Monitoring
+            </button>
+            <button id="stopPollingBtn" class="btn btn-danger btn-lg" style="display: none;" data-i18n="btn_stop_polling">
+              ⏹ Stop Monitoring
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Monitoring Terminal -->
+    <section class="card monitor-card" id="monitorCard">
+      <div class="card-header space-between">
+        <div class="monitor-title">
+          <h2 data-i18n="card3_title">3. Live Monitoring Logs</h2>
+          <span class="round-badge" id="roundBadge" data-i18n="round_badge_initial">Poll Count: 0</span>
+        </div>
+        <span class="save-hint" data-i18n="save_hint">📌 Booked tickets will be saved to <code>successful_tickets.txt</code></span>
+      </div>
+      <div class="card-body">
+        <div class="terminal-box" id="terminalBox">
+          <div class="log-entry system" data-i18n="sys_ready_log">[System] Booking engine ready, supports local OCR and persistent Chrome.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Booking Success Modal -->
+    <div class="modal-overlay" id="successModal">
+      <div class="modal-card">
+        <div class="modal-header success">
+          <span class="modal-icon">🎉</span>
+          <h3 data-i18n="modal_success_title">Congratulations! Ticket Booked Successfully!</h3>
+        </div>
+        <div class="modal-body" id="modalTicketBody">
+          <!-- Dynamic Ticket Content -->
+        </div>
+        <div class="modal-footer">
+          <button id="closeModalBtn" class="btn btn-primary w-100" data-i18n="modal_success_btn">Got It</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Booking History Modal -->
+    <div class="modal-overlay" id="historyModal">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <h3 data-i18n="modal_history_title">📜 Booking History Records</h3>
+          <button class="close-btn" id="closeHistoryBtn">&times;</button>
+        </div>
+        <!-- Date Filter Bar -->
+        <div class="history-filter-bar" id="historyFilterBar" style="display: none;">
+          <div class="history-filter-header">
+            <span data-i18n="filter_by_date_prefix">📅 Filter by Travel Date:</span>
+            <span id="historyFilteredSummary" data-i18n="summary_initial">0 records</span>
+          </div>
+          <div class="history-filter-tags" id="historyFilterTags">
+            <!-- Dynamic Date Filter Tags -->
+          </div>
+        </div>
+        <div class="modal-body" id="historyListContainer">
+          <!-- Dynamic History List Content -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

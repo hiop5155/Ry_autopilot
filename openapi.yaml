@@ -1,0 +1,663 @@
+openapi: 3.0.3
+info:
+  title: Railway Auto-Pilot RESTful API
+  description: >
+    Comprehensive RESTful API specification for the Railway Auto-Pilot (Ry_autopilot)
+    automated seat-monitoring, multi-task scheduling, and rapid ticket booking platform.
+  version: 2.0.0
+  license:
+    name: PolyForm Noncommercial License 1.0.0
+    url: https://polyformproject.org/licenses/noncommercial/1.0.0/
+
+servers:
+  - url: http://127.0.0.1:8080
+    description: Default local web server
+  - url: http://127.0.0.1:8081
+    description: Secondary fallback port
+
+tags:
+  - name: Tasks
+    description: Multi-task parallel itinerary session management
+  - name: Configuration
+    description: Station catalog and task-specific search preferences
+  - name: Monitoring
+    description: Real-time seat-hunting worker lifecycle and status telemetry
+  - name: Timetable
+    description: Live schedule queries and train selection
+  - name: Tickets
+    description: Booked ticket storage, history, and automated online cancellation
+
+paths:
+  /api/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: List all active tasks
+      description: Retrieve a summary of all active multi-task tabs, including current statuses, stations, and round counts.
+      responses:
+        '200':
+          description: Successful retrieval of task list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskSummary'
+
+  /api/tasks/create:
+    post:
+      tags:
+        - Tasks
+      summary: Create a new task tab
+      description: Instantiate a new isolated task tab with default configuration and state machine.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Optional custom title for the task
+                  example: Taipei to Hualien
+      responses:
+        '200':
+          description: Task successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  task:
+                    $ref: '#/components/schemas/TaskState'
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskSummary'
+
+  /api/tasks/rename:
+    post:
+      tags:
+        - Tasks
+      summary: Rename an existing task tab
+      description: Update the display title of a specific task tab.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task_id
+                - name
+              properties:
+                task_id:
+                  type: string
+                  example: task_1711100000_a1b2
+                name:
+                  type: string
+                  example: Weekend Return
+      responses:
+        '200':
+          description: Task renamed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskSummary'
+
+  /api/tasks/delete:
+    post:
+      tags:
+        - Tasks
+      summary: Delete a task tab
+      description: Stop any ongoing background worker and purge the specified task tab (at least one task is always retained).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task_id
+              properties:
+                task_id:
+                  type: string
+                  example: task_1711100000_a1b2
+      responses:
+        '200':
+          description: Result of deletion attempt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  msg:
+                    type: string
+                    example: 已刪除任務
+                  tasks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskSummary'
+
+  /api/config:
+    get:
+      tags:
+        - Configuration
+      summary: Retrieve station catalog and task configuration
+      description: Returns the full 4-digit station catalog, common station shortcuts, and parameters configured for the specified task.
+      parameters:
+        - name: task_id
+          in: query
+          required: false
+          schema:
+            type: string
+            default: default
+          description: Target task ID
+      responses:
+        '200':
+          description: Station lists and current configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  /api/status:
+    get:
+      tags:
+        - Monitoring
+      summary: Poll real-time task status
+      description: Polls current execution state, countdown to next round, latest activity logs, and booking results for a task.
+      parameters:
+        - name: task_id
+          in: query
+          required: false
+          schema:
+            type: string
+            default: default
+          description: Target task ID
+      responses:
+        '200':
+          description: Current runtime state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskState'
+
+  /api/timetable:
+    post:
+      tags:
+        - Timetable
+      summary: Query train schedules
+      description: Query official railway schedules between origin and destination within the specified date and time window.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ride_date
+                - start_station
+                - end_station
+              properties:
+                ride_date:
+                  type: string
+                  description: Travel date in YYYY/MM/DD or YYYY-MM-DD
+                  example: "2026/10/01"
+                start_station:
+                  type: string
+                  description: Origin 4-digit station code or name
+                  example: "1000"
+                end_station:
+                  type: string
+                  description: Destination 4-digit station code or name
+                  example: "1020"
+                start_time:
+                  type: string
+                  description: Departure start time (HH:MM)
+                  example: "08:00"
+                end_time:
+                  type: string
+                  description: Departure end time (HH:MM)
+                  example: "12:00"
+                task_id:
+                  type: string
+                  default: default
+      responses:
+        '200':
+          description: Query results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  trains:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TrainItem'
+
+  /api/start:
+    post:
+      tags:
+        - Monitoring
+      summary: Start automated seat-hunting worker
+      description: Spawns an isolated background worker thread to continuously monitor seat availability and solve captchas for the specified criteria.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task_id
+                - pid
+                - ride_date
+                - start_station
+                - end_station
+              properties:
+                task_id:
+                  type: string
+                  example: default
+                pid:
+                  type: string
+                  description: Passenger national ID number
+                  example: A123456789
+                ride_date:
+                  type: string
+                  example: "2026/10/01"
+                start_station:
+                  type: string
+                  example: "1000"
+                end_station:
+                  type: string
+                  example: "1020"
+                start_time:
+                  type: string
+                  example: "08:00"
+                end_time:
+                  type: string
+                  example: "12:00"
+                target_trains:
+                  type: array
+                  items:
+                    type: string
+                  example: ["408", "410"]
+                ticket_qty:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                  default: 1
+                split_mode:
+                  type: string
+                  enum: [single, split]
+                  default: single
+                cached_trains:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TrainItem'
+      responses:
+        '200':
+          description: Monitoring thread started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  msg:
+                    type: string
+                    example: 任務 [任務 1] 撿票監控啟動成功
+                  task_id:
+                    type: string
+                    example: default
+
+  /api/stop:
+    post:
+      tags:
+        - Monitoring
+      summary: Stop background monitoring worker
+      description: Signals the background worker thread of the specified task to safely terminate.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - task_id
+              properties:
+                task_id:
+                  type: string
+                  example: default
+      responses:
+        '200':
+          description: Monitoring stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  msg:
+                    type: string
+                    example: 任務 [任務 1] 已停止監控
+                  task_id:
+                    type: string
+                    example: default
+
+  /api/tickets:
+    get:
+      tags:
+        - Tickets
+      summary: List all successfully booked tickets
+      description: Reads and parses records stored in successful_tickets.json and successful_tickets.txt.
+      responses:
+        '200':
+          description: List of stored ticket bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookedTicket'
+
+  /api/cancel_ticket:
+    post:
+      tags:
+        - Tickets
+      summary: Cancel ticket online and delete local record
+      description: Interacts with the official passenger portal to submit an online refund/cancellation, and purges the record locally.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - booking_code
+                - pid
+              properties:
+                booking_code:
+                  type: string
+                  description: 8-digit railway ticket retrieval booking code
+                  example: "88776655"
+                pid:
+                  type: string
+                  description: Passenger national identification number
+                  example: "A123456789"
+      responses:
+        '200':
+          description: Cancellation response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  msg:
+                    type: string
+                    example: 線上退票成功，已刪除本地歷史紀錄
+
+components:
+  schemas:
+    TaskSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: default
+        name:
+          type: string
+          example: 任務 1
+        is_running:
+          type: boolean
+          example: false
+        round_count:
+          type: integer
+          example: 12
+        start_station_name:
+          type: string
+          example: 臺北
+        end_station_name:
+          type: string
+          example: 板橋
+        ride_date:
+          type: string
+          example: "2026/10/01"
+        booked_count:
+          type: integer
+          example: 0
+        target_count:
+          type: integer
+          example: 1
+        last_log:
+          type: string
+          example: 系統待命中，請設定條件並查詢車次
+        has_success:
+          type: boolean
+          example: false
+
+    TaskState:
+      type: object
+      properties:
+        id:
+          type: string
+          example: default
+        name:
+          type: string
+          example: 任務 1
+        is_running:
+          type: boolean
+          example: false
+        round_count:
+          type: integer
+          example: 0
+        countdown:
+          type: integer
+          description: Seconds until next polling attempt
+          example: 3
+        last_log:
+          type: string
+          example: 系統待命中，請設定條件並查詢車次
+        logs:
+          type: array
+          items:
+            type: string
+          example: ["[系統] 系統待命中，請設定條件並查詢車次"]
+        ride_date:
+          type: string
+          example: "2026/10/01"
+        start_station:
+          type: string
+          example: "1000"
+        start_station_name:
+          type: string
+          example: 臺北
+        end_station:
+          type: string
+          example: "1020"
+        end_station_name:
+          type: string
+          example: 板橋
+        start_time:
+          type: string
+          example: "08:00"
+        end_time:
+          type: string
+          example: "12:00"
+        ticket_qty:
+          type: integer
+          example: 1
+        split_mode:
+          type: string
+          enum: [single, split]
+          example: single
+        booked_count:
+          type: integer
+          example: 0
+        target_count:
+          type: integer
+          example: 1
+        target_trains:
+          type: array
+          items:
+            type: string
+          example: ["408"]
+        cached_trains:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrainItem'
+        ticket_result:
+          type: object
+          nullable: true
+          properties:
+            booking_code:
+              type: string
+              example: "88776655"
+            train_no:
+              type: string
+              example: "408"
+            trip_info:
+              type: string
+              example: "臺北 ➔ 板橋"
+            seat:
+              type: string
+              example: "3車12號"
+            pay_deadline:
+              type: string
+              example: "2026/09/25 24:00"
+
+    TrainItem:
+      type: object
+      properties:
+        train_no:
+          type: string
+          example: "408"
+        train_type:
+          type: string
+          example: 新自強(EMU3000)
+        departure_time:
+          type: string
+          example: "07:30"
+        arrival_time:
+          type: string
+          example: "09:40"
+        duration:
+          type: string
+          example: "02:10"
+        raw_name:
+          type: string
+          example: 新自強 408
+
+    ConfigResponse:
+      type: object
+      properties:
+        current_task_id:
+          type: string
+          example: default
+        current_task_name:
+          type: string
+          example: 任務 1
+        pid:
+          type: string
+          example: A123456789
+        ride_date:
+          type: string
+          example: "2026-10-01"
+        start_station:
+          type: string
+          example: "1000"
+        end_station:
+          type: string
+          example: "1020"
+        start_time:
+          type: string
+          example: "08:00"
+        end_time:
+          type: string
+          example: "12:00"
+        ticket_qty:
+          type: integer
+          example: 1
+        split_mode:
+          type: string
+          example: single
+        common_stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/StationItem'
+        all_stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/StationItem'
+
+    StationItem:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "1000"
+        name:
+          type: string
+          example: 臺北
+        en_name:
+          type: string
+          example: Taipei
+
+    BookedTicket:
+      type: object
+      properties:
+        booking_code:
+          type: string
+          example: "88776655"
+        pid:
+          type: string
+          example: "A123456789"
+        trip_info:
+          type: string
+          example: "臺北 ➔ 板橋"
+        train_type:
+          type: string
+          example: "新自強"
+        train_no:
+          type: string
+          example: "408"
+        seat:
+          type: string
+          example: "3車12號"
+        pay_deadline:
+          type: string
+          example: "2026/09/25 24:00"
+        created_at:
+          type: string
+          example: "2026-09-22 18:30:00"

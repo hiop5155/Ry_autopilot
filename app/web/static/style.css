@@ -1,0 +1,1417 @@
+:root {
+  --bg-primary: #0b0f19;
+  --bg-secondary: #111827;
+  --bg-card: rgba(26, 34, 52, 0.7);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --accent-cyan: #06b6d4;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+  --accent-purple: #8b5cf6;
+  --radius: 12px;
+  --font-sans: 'Inter', 'Noto Sans TC', sans-serif;
+}
+
+html {
+  box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.12) 0px, transparent 50%);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  padding: 24px;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.app-container {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 頂部導航 */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  font-size: 32px;
+}
+
+.brand-text h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.version-tag {
+  font-size: 12px;
+  color: var(--accent-cyan);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 語言切換選單 */
+.lang-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  color: var(--text-main);
+  transition: all 0.2s;
+}
+
+.lang-selector-wrap:hover {
+  border-color: var(--accent-cyan);
+}
+
+.lang-dropdown {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.lang-dropdown option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.status-indicator .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-indicator.active .dot {
+  background: var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 主版面 Grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+}
+
+
+
+/* 卡片通用樣式 */
+.card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.space-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-body {
+  padding: 20px;
+  flex: 1;
+}
+
+.card-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom-left-radius: var(--radius);
+  border-bottom-right-radius: var(--radius);
+}
+
+/* 表單元件 */
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.label-row label {
+  margin-bottom: 0;
+}
+
+.pid-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.pid-status.valid {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--accent-green);
+}
+
+.pid-status.invalid {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+}
+
+.input-action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--accent-cyan);
+}
+
+select {
+  cursor: pointer;
+}
+
+select option {
+  background-color: #0f172a;
+  color: #f8fafc;
+  padding: 10px;
+}
+
+input[type="date"] {
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(1);
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+
+/* 按鈕樣式 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+  color: #fff;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+}
+
+.btn-lg {
+  padding: 12px 24px;
+  font-size: 15px;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent-cyan);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 6px;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+/* 列車清單項目 */
+.trains-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.train-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.train-card:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.train-card.selected {
+  background: rgba(6, 182, 212, 0.12);
+  border-color: var(--accent-cyan);
+}
+
+.train-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.train-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-cyan);
+}
+
+.train-no-badge {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+}
+
+.train-type-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.train-time {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.train-duration {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+/* 監控終端卡片 */
+.monitor-card {
+  margin-top: 4px;
+}
+
+.round-badge {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-cyan);
+}
+
+.save-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.save-hint code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--accent-yellow);
+}
+
+.terminal-box {
+  background: #060911;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  margin-bottom: 4px;
+}
+
+.log-entry.system { color: var(--text-muted); }
+.log-entry.success { color: var(--accent-green); font-weight: bold; }
+.log-entry.warn { color: var(--accent-yellow); }
+.log-entry.error { color: var(--accent-red); }
+
+/* 彈窗樣式 */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.modal-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  max-width: 520px;
+  width: 95%;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  position: relative;
+}
+
+.modal-lg {
+  max-width: 720px;
+}
+
+.modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.modal-header h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.modal-header.success {
+  flex-direction: column;
+  text-align: center;
+  padding: 24px 20px 16px;
+  border-bottom: none;
+}
+
+.modal-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+.modal-footer {
+  padding: 14px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.modal-icon {
+  font-size: 44px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.ticket-details-box {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+}
+
+.detail-label {
+  color: var(--text-muted);
+}
+
+.detail-val {
+  font-weight: 600;
+}
+
+.detail-val.code {
+  color: var(--accent-yellow);
+  font-size: 18px;
+}
+
+.detail-val.seat {
+  color: var(--accent-green);
+  font-size: 15px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   車站搜尋 Combobox & 起訖對調按鈕樣式
+   ========================================================================== */
+.station-swap-container {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.station-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.swap-btn-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 2px;
+}
+
+.swap-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+  user-select: none;
+}
+
+.swap-btn:hover {
+  background: var(--accent-cyan);
+  color: #0b1120;
+  transform: rotate(180deg) scale(1.08);
+  box-shadow: 0 0 16px var(--accent-cyan);
+}
+
+.swap-btn:active {
+  transform: rotate(180deg) scale(0.95);
+}
+
+/* Combobox 群組與外框 */
+.combobox-group {
+  position: relative;
+}
+
+.combobox-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.combobox-input {
+  width: 100%;
+  padding-right: 34px !important;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+
+.combobox-toggle-btn {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  transition: color 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.combobox-toggle-btn:hover {
+  color: var(--accent-cyan);
+}
+
+.combobox-group.open {
+  z-index: 1050;
+}
+
+.combobox-group.open .combobox-toggle-btn {
+  transform: rotate(180deg);
+  color: var(--accent-cyan);
+}
+
+/* 下拉選單面板 */
+.combobox-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #0f172a;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  border-radius: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.75), 0 0 14px rgba(6, 182, 212, 0.2);
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+}
+
+.combobox-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+.combobox-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+.combobox-dropdown::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+/* 下拉項目 */
+.combobox-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.combobox-item:hover, .combobox-item.active {
+  background: rgba(6, 182, 212, 0.18);
+  color: #ffffff;
+}
+
+.combobox-item.selected {
+  background: rgba(6, 182, 212, 0.28);
+  font-weight: 600;
+}
+
+.combobox-item .station-code {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-cyan);
+  font-size: 13px;
+  min-width: 44px;
+}
+
+.combobox-item .station-name {
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.combobox-item .highlight {
+  color: #38bdf8;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.combobox-empty {
+  padding: 16px 14px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ==========================================================================
+   歷史取票紀錄日期篩選器 (History Date Filter)
+   ========================================================================== */
+.history-filter-bar {
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.history-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-date-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-date-pill:hover {
+  background: rgba(6, 182, 212, 0.2);
+  border-color: var(--accent-cyan);
+  color: #ffffff;
+}
+
+.history-date-pill.active {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  color: #0b1120;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+}
+
+.history-date-pill .pill-count {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.history-date-pill.active .pill-count {
+  background: rgba(0, 0, 0, 0.2);
+  color: #0b1120;
+}
+
+/* 車票卡片操作區域與取消退票按鈕 */
+.ticket-card-actions {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ticket-status-badge {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ticket-status-badge.expired {
+  color: #94a3b8;
+}
+
+.ticket-status-badge.active {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.btn-cancel-ticket {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-cancel-ticket.can-cancel {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+.btn-cancel-ticket.can-cancel:hover:not(:disabled) {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-cancel-ticket.expired {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+
+.btn-cancel-ticket.expired:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.25);
+  border-color: #cbd5e1;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.btn-cancel-ticket:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Toast Notification Component */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 440px;
+}
+
+.toast-message {
+  pointer-events: auto;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.25s ease;
+}
+
+.toast-message.success {
+  border-left: 4px solid #10b981;
+}
+
+.toast-message.error {
+  border-left: 4px solid #ef4444;
+}
+
+.toast-message.warning {
+  border-left: 4px solid #f59e0b;
+}
+
+.toast-message.info {
+  border-left: 4px solid #38bdf8;
+}
+
+.toast-message.toast-fadeout {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Polling locked state styles */
+.locked-card {
+  position: relative;
+  transition: opacity 0.3s ease;
+}
+
+.locked-card input:disabled,
+.locked-card select:disabled,
+.locked-card button:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+
+.train-card.disabled {
+  pointer-events: none !important;
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+
+/* ==========================================================================
+   響應式排版系統 (Responsive Web Design System)
+   針對手機 (360px ~ 480px)、平板 (680px ~ 860px) 全面優化
+   ========================================================================== */
+
+/* 平板尺寸 (860px 以下) */
+@media (max-width: 860px) {
+  body {
+    padding: 16px;
+  }
+
+  .main-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+/* 中小型平板與手機 (768px 以下) */
+@media (max-width: 768px) {
+  body {
+    padding: 12px 10px;
+  }
+
+  .app-container {
+    gap: 12px;
+  }
+
+  .card-header {
+    padding: 14px 16px;
+  }
+
+  .card-body {
+    padding: 16px;
+  }
+
+  .card-footer {
+    padding: 14px 16px;
+  }
+
+  .btn {
+    touch-action: manipulation;
+  }
+
+  input, select {
+    font-size: 16px;
+  }
+}
+
+/* 手機版核心版面重構 (680px 以下) */
+@media (max-width: 680px) {
+  /* 頂部導航列：分層排版，防止右側按鈕溢出 */
+  .navbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .logo-icon {
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+
+  .brand-text h1 {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  .version-tag {
+    font-size: 11px;
+    display: inline-block;
+  }
+
+  .nav-right {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .lang-selector-wrap {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .lang-dropdown {
+    font-size: 12px;
+  }
+
+  #viewHistoryBtn {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  /* 輪詢狀態指示條：單獨滿寬置中，醒目且不佔用橫向空間 */
+  .status-indicator {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    padding: 6px 12px;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  /* 監控卡片 Header */
+  .monitor-card .card-header.space-between {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .monitor-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .save-hint {
+    font-size: 11px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .terminal-box {
+    padding: 10px 12px;
+    font-size: 11.5px;
+    max-height: 160px;
+  }
+
+  /* 車次清單卡片 */
+  .train-card {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .train-left {
+    gap: 8px;
+    flex: 1 1 auto;
+  }
+
+  .train-no-badge {
+    font-size: 14px;
+    padding: 3px 8px;
+  }
+
+  .train-type-badge {
+    font-size: 11.5px;
+    padding: 2px 6px;
+  }
+
+  .train-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+
+  .train-time {
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+
+  .train-duration {
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+
+  /* 車次卡片底部操作按鈕 */
+  .card-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .selected-summary {
+    width: 100%;
+    text-align: center;
+    font-size: 12.5px;
+  }
+
+  .action-buttons {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-buttons .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* 彈窗響應式 */
+  .modal-overlay {
+    padding: 10px 8px;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 12px;
+  }
+
+  .modal-header {
+    padding: 12px 14px;
+  }
+
+  .modal-header h3 {
+    font-size: 15px;
+  }
+
+  .modal-body {
+    padding: 12px 14px;
+  }
+
+  .modal-footer {
+    padding: 10px 14px;
+  }
+
+  .history-filter-bar {
+    padding: 10px 14px;
+  }
+
+  .history-filter-header {
+    font-size: 12px;
+  }
+
+  .history-date-pill {
+    padding: 4px 8px;
+    font-size: 11.5px;
+  }
+
+  .ticket-details-box {
+    padding: 12px;
+  }
+
+  .detail-row {
+    font-size: 12.5px;
+  }
+
+  .detail-val.code {
+    font-size: 16px;
+  }
+
+  .ticket-card-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .ticket-card-actions .btn-cancel-ticket {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 12px;
+  }
+
+  /* Toast 浮動提示位置調整（置頂滿版微縮） */
+  .toast-container {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+
+  .toast-message {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+}
+
+/* 小型手機特別優化 (480px 以下) */
+@media (max-width: 480px) {
+  /* 車站選擇欄位改為垂直堆疊，確保出發站與抵達站都有完整寬度，避免文字截斷 */
+  .station-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .combobox-group {
+    width: 100%;
+  }
+
+  .swap-btn-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: -2px 0;
+  }
+
+  .swap-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .combobox-dropdown {
+    width: 100%;
+    max-height: 200px;
+  }
+
+  /* Passenger ID 欄位彈性自適應 */
+  .input-action-row {
+    gap: 6px;
+  }
+
+  #pidInput {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  #genPidBtn {
+    padding: 8px 10px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  /* 時間選擇欄位 */
+  .form-row {
+    gap: 8px;
+  }
+
+  .form-row select {
+    padding: 9px 8px;
+    font-size: 13.5px;
+  }
+
+  /* 列車卡片在小螢幕時自動把時間移至下方 */
+  .train-right {
+    width: 100%;
+    flex: 0 0 100%;
+    justify-content: flex-start;
+    padding-left: 28px;
+    padding-top: 4px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* 超窄螢幕極限保護 (360px 以下) */
+@media (max-width: 360px) {
+  body {
+    padding: 8px 5px;
+  }
+
+  .card-body {
+    padding: 10px;
+  }
+
+  .brand-text h1 {
+    font-size: 14px;
+  }
+
+  #viewHistoryBtn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
+
+
+

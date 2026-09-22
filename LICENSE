@@ -1,0 +1,66 @@
+PolyForm Noncommercial License 1.0.0
+
+<https://polyformproject.org/licenses/noncommercial/1.0.0>
+
+## Purpose
+
+This license allows each user to run, copy, distribute, make available, and make derivative works of this software for noncommercial purposes, without paying the licensor fees.
+
+## Agreement
+
+In order to receive this license, you must agree to its rules. The rules of this license are both obligations under that agreement and conditions to your license. You must not do anything with this software that triggers a rule you cannot or will not follow.
+
+## Notices
+
+You must ensure that everyone who gets a copy of any part of this software from you, with or without changes, also receives the full text of this license and the contributor notices for this software.
+
+## Noncommercial Purposes
+
+Any noncommercial purpose is permitted. A noncommercial purpose is a purpose that is not primarily intended for or directed toward commercial advantage or monetary compensation.
+
+Here are some examples of permitted noncommercial purposes:
+- personal use for research, study, or hobby
+- use by non-profit organizations or charities in service of their mission
+- public service or journalism
+
+Here are some examples of prohibited commercial purposes:
+- selling copies of this software or derivative works
+- offering services or software-as-a-service (SaaS) built on this software for fees
+- advertising or sponsorship in connection with the software
+- internal business use by commercial entities to facilitate commercial operations
+
+## Fair Use
+
+You may use this software as permitted by applicable fair use, fair dealing, or other similar exceptions to copyright.
+
+## No Other Rights
+
+Any purpose other than a permitted noncommercial purpose is not covered by this license. If you want to use this software for any other purpose, you must obtain a separate license from the licensor.
+
+## Patent License
+
+Each contributor licenses you to do everything with this software that would otherwise infringe any patent claims they can license or become able to license.
+
+## Reliability
+
+The licensor can't revoke this license.
+
+## No Warranty
+
+As far as the law allows, this software comes as is, without any warranty or condition, and no contributor will be liable to anyone for any damages related to this software or this license, under any kind of legal claim.
+
+---
+
+## Additional Terms of Use & Legal Disclaimer (使用條款與法律免責聲明)
+
+1. **Educational and Research Use Only (學術與技術研究專用)**:
+   This software is developed strictly for educational, technical research, and personal experimentation purposes (including Python network automation and OCR character recognition algorithms).
+   本軟體僅供學術交流、技術研究與個人學習 Python 網路自動化及 OCR 驗證碼辨識技術之用。
+
+2. **Prohibition of Commercial Exploitation & Ticket Scalping (嚴禁商業營利與代購黃牛行為)**:
+   Under NO circumstances may this software be used for commercial resale, paid ticket scalping, or commercial procurement services. Users must strictly comply with all applicable railway transportation laws and regulations against ticket scalping.
+   嚴禁將本程式用於任何商業兜售、加價轉售（黃牛票）或收費代購等營利行為。使用者應嚴格遵守相關鐵路客運法令與規章，切勿觸法。
+
+3. **No Warranty & Limitation of Liability (免責條款)**:
+   This software is provided "AS IS", without warranty of any kind, express or implied. The author and contributors shall NOT be liable for any booking failures, schedule disruptions, account/IP restrictions imposed by railway authorities, or any direct/indirect damages or legal responsibilities arising from the use or misuse of this software. The end user assumes all risks and liabilities.
+   本軟體以「現狀」提供，不保證訂票之成功率或可用性。因使用或不當使用本工具所致之行程延誤、訂票失敗、帳號被限制或任何民刑事法律責任，概由使用者自行承擔，專案作者及貢獻者不負擔任何形式之法律連帶責任。
