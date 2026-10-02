@@ -1,0 +1,126 @@
+name: Multi-Platform Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x86_64
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            archive_name: Ry_autopilot-linux-x86_64.tar.gz
+            is_windows: false
+
+          # Linux ARM64 (Raspberry Pi 4/5, Graviton, Ampere)
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+            archive_name: Ry_autopilot-linux-arm64.tar.gz
+            is_windows: false
+
+          # macOS Apple Silicon (M1/M2/M3/M4 ARM64)
+          - os: macos-latest
+            platform: macos-arm64
+            archive_name: Ry_autopilot-macos-arm64.tar.gz
+            is_windows: false
+
+          # Windows x86_64
+          - os: windows-latest
+            platform: windows-x86_64
+            archive_name: Ry_autopilot-windows-x86_64.zip
+            is_windows: true
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      - name: Build React Frontend
+        shell: bash
+        run: |
+          cd client
+          npm ci || npm install
+          npm run build
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python Dependencies & PyInstaller
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Build Standalone Executable
+        shell: bash
+        run: |
+          python scripts/build_dist.py
+
+      - name: Package Binary (Windows)
+        if: matrix.is_windows == true
+        shell: bash
+        run: |
+          7z a "${{ matrix.archive_name }}" Ry_autopilot.exe
+
+      - name: Package Binary (Unix - Linux / macOS)
+        if: matrix.is_windows == false
+        shell: bash
+        run: |
+          chmod +x Ry_autopilot
+          tar -czvf "${{ matrix.archive_name }}" Ry_autopilot
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive_name }}
+          path: ${{ matrix.archive_name }}
+          retention-days: 7
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download All Built Binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

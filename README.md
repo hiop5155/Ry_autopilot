@@ -63,7 +63,7 @@ tn_test/
 ├── main.py                     # Application entry point (Web / CLI router)
 ├── run.sh                      # Production / Standalone launch script (Linux/macOS)
 ├── run.bat                     # Production / Standalone launch script (Windows)
-├── scripts/build_dist.sh       # PyInstaller standalone executable packaging script
+├── scripts/build_dist.py       # Cross-platform standalone executable packaging script
 └── requirements.txt            # Python dependencies
 ```
 

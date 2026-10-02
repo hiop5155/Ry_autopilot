@@ -1,12 +1,13 @@
 INSTALL_DIR := $(HOME)/.local/bin
 TARGET_BIN  := Ry_autopilot
+PYTHON      := $(shell if [ -f "./venv/bin/python3" ]; then echo "./venv/bin/python3"; elif command -v python3 >/dev/null 2>&1; then echo "python3"; else echo "python"; fi)
 
 .PHONY: all dist run install uninstall clean
 
 all: dist
 
 dist:
-	@bash scripts/build_dist.sh
+	@$(PYTHON) scripts/build_dist.py
 
 run:
 	@if [ -f "./$(TARGET_BIN)" ] && [ -x "./$(TARGET_BIN)" ]; then \
