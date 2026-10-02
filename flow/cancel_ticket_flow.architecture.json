@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "線上取消訂票與歷史管理流程 (Cancel Ticket Flow)",
+    "subtitle": "訂票代碼與身分驗證、歷史訂票紀錄查詢、繳費期限檢核、線上退票確認與儲存同步",
+    "output": "cancel_ticket_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "cancellation-path",
+        "label": "主取消訂票成功路徑",
+        "focus": ["cancel_request", "deadline_checker", "history_portal_nav", "submit_history_query", "status_evaluator", "trigger_cancel_modal", "confirm_cancellation", "sync_local_storage"],
+        "note": "從發起退票、官方系統查詢驗證、彈窗確認到本地儲存同步之端到端流程。"
+      },
+      {
+        "id": "already-handled-path",
+        "label": "已取消或已失效分流",
+        "focus": ["status_evaluator", "already_cancelled_state", "sync_local_storage"],
+        "note": "官方已處於取消或逾期狀態時，自動同理並清理本地記錄。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "cancel_request",
+      "type": "frontend",
+      "label": "發起取消請求",
+      "sublabel": "帶入 PID 與 訂票代碼",
+      "pos": [40, 260],
+      "size": [130, 60],
+      "tag": "API Request"
+    },
+    {
+      "id": "deadline_checker",
+      "type": "backend",
+      "label": "繳費期限檢核",
+      "sublabel": "解析 24:00 跨日與有效性",
+      "pos": [250, 260],
+      "size": [130, 60],
+      "tag": "時間計算"
+    },
+    {
+      "id": "history_portal_nav",
+      "type": "frontend",
+      "label": "載入歷史查詢頁",
+      "sublabel": "官方歷史訂票查詢入口",
+      "pos": [460, 260],
+      "size": [130, 60],
+      "tag": "Headless Chrome"
+    },
+    {
+      "id": "submit_history_query",
+      "type": "backend",
+      "label": "送出查詢表單",
+      "sublabel": "輸入證號代碼並提交",
+      "pos": [670, 260],
+      "size": [130, 60],
+      "tag": "Form POST"
+    },
+    {
+      "id": "status_evaluator",
+      "type": "security",
+      "label": "訂單狀態評估",
+      "sublabel": "可取消 / 已取消 / 查無紀錄",
+      "pos": [880, 260],
+      "size": [130, 60],
+      "tag": "狀態分流"
+    },
+    {
+      "id": "trigger_cancel_modal",
+      "type": "frontend",
+      "label": "觸發取消按鈕",
+      "sublabel": "點擊 #cancel 彈出官方確認框",
+      "pos": [1100, 260],
+      "size": [130, 60],
+      "tag": "Confirm Dialog"
+    },
+    {
+      "id": "confirm_cancellation",
+      "type": "security",
+      "label": "確認取消訂票",
+      "sublabel": "點擊確認並驗證 complete 頁面",
+      "pos": [1310, 260],
+      "size": [130, 60],
+      "tag": "完成退票"
+    },
+    {
+      "id": "sync_local_storage",
+      "type": "database",
+      "label": "同步本地儲存",
+      "sublabel": "更新/刪除 SQLite tickets 表",
+      "pos": [1310, 410],
+      "size": [130, 60],
+      "tag": "資料庫同步"
+    },
+    {
+      "id": "already_cancelled_state",
+      "type": "external",
+      "label": "已取消或已失效",
+      "sublabel": "官方標記已處理，直接對齊",
+      "pos": [880, 410],
+      "size": [130, 60],
+      "tag": "無需重複取消"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "前置參數檢核層",
+      "wraps": ["cancel_request", "deadline_checker"]
+    },
+    {
+      "kind": "security-group",
+      "label": "官方歷史訂票查詢層",
+      "wraps": ["history_portal_nav", "submit_history_query", "status_evaluator"]
+    },
+    {
+      "kind": "region",
+      "label": "退票執行與本地同步層",
+      "wraps": ["trigger_cancel_modal", "confirm_cancellation", "sync_local_storage", "already_cancelled_state"]
+    }
+  ],
+  "connections": [
+    { "id": "k1", "from": "cancel_request", "to": "deadline_checker", "variant": "emphasis" },
+    { "id": "k2", "from": "deadline_checker", "to": "history_portal_nav", "variant": "emphasis" },
+    { "id": "k3", "from": "history_portal_nav", "to": "submit_history_query", "variant": "emphasis" },
+    { "id": "k4", "from": "submit_history_query", "to": "status_evaluator", "variant": "emphasis" },
+    { "id": "k5", "from": "status_evaluator", "to": "trigger_cancel_modal", "variant": "emphasis" },
+    { "id": "k6", "from": "trigger_cancel_modal", "to": "confirm_cancellation", "variant": "emphasis" },
+    { "id": "k7", "from": "confirm_cancellation", "to": "sync_local_storage", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "k8", "from": "status_evaluator", "to": "already_cancelled_state", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "k9", "from": "already_cancelled_state", "to": "sync_local_storage", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "跨日繳費期限演算法",
+      "items": [
+        "特殊 24:00 解析相容：針對官方特定車票給出的「09/24 24:00」格式，精確解析為隔日的 00:00:00，避免誤判過期。",
+        "支援全日期格式匹配（含西元年與簡式月日），確保檢核邏輯嚴謹。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "雙重防呆與狀態感應",
+      "items": [
+        "自動狀態校驗：若官方訂單已顯示為「已取消」或「查無紀錄」，程式自動辨別並判定退票成功，避免重複向伺服器發出無效請求。",
+        "WebDriverWait 嚴格驗證：點擊確認退票後，強制等待跳轉至官方 complete 頁面並核對反饋文字，確保每一筆退票真實生效。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "本地票券同步閉環",
+      "items": [
+        "退票成功後，程式透過 SQLite 交易機制原子性刪除 tickets 表中紀錄，保證前端介面 Session 訂票狀況與歷史紀錄 100% 同步。"
+      ]
+    }
+  ]
+}

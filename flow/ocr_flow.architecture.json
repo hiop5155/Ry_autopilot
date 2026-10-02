@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "驗證碼 OCR 辨識流程 (OCR Captcha Flow)",
+    "subtitle": "圖形驗證碼元素偵測、截圖獲取、圖像前處理、神經網路字元預測與自動重試",
+    "output": "ocr_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "recognition-path",
+        "label": "主辨識與表單注入路徑",
+        "focus": ["detect_captcha", "capture_png", "preprocess_img", "ddddocr_predict", "sanitize_text", "fill_input_dom"],
+        "note": "自元素定位、二進制截圖、模型推論到 DOM 注入之主流程。"
+      },
+      {
+        "id": "refresh-path",
+        "label": "更換圖形與容錯迴路",
+        "focus": ["ddddocr_predict", "refresh_captcha", "detect_captcha"],
+        "note": "模糊或辨識失敗時主動點擊換圖，形成自我修復之推論迴圈。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "detect_captcha",
+      "type": "frontend",
+      "label": "偵測驗證碼元素",
+      "sublabel": "定位頁面上可見之 #codeimg",
+      "pos": [40, 260],
+      "size": [130, 60],
+      "tag": "DOM 檢測"
+    },
+    {
+      "id": "capture_png",
+      "type": "backend",
+      "label": "擷取二進制圖片",
+      "sublabel": "screenshot_as_png 記憶體流",
+      "pos": [250, 260],
+      "size": [130, 60],
+      "tag": "PNG Stream"
+    },
+    {
+      "id": "preprocess_img",
+      "type": "backend",
+      "label": "圖像前處理",
+      "sublabel": "PIL 影像解碼、灰階與色彩校正",
+      "pos": [460, 260],
+      "size": [130, 60],
+      "tag": "Image Preprocess"
+    },
+    {
+      "id": "ddddocr_predict",
+      "type": "messagebus",
+      "label": "神經網路字元預測",
+      "sublabel": "ddddocr 卷積/循環網路推論",
+      "pos": [670, 260],
+      "size": [130, 60],
+      "tag": "Deep Learning"
+    },
+    {
+      "id": "sanitize_text",
+      "type": "security",
+      "label": "字串清洗與校準",
+      "sublabel": "過濾非英數符號與長度驗證",
+      "pos": [880, 260],
+      "size": [130, 60],
+      "tag": "字串校驗"
+    },
+    {
+      "id": "fill_input_dom",
+      "type": "database",
+      "label": "注入表單欄位",
+      "sublabel": "設定 #verifyCode 並觸發 Event",
+      "pos": [1100, 260],
+      "size": [130, 60],
+      "tag": "原生事件派發"
+    },
+    {
+      "id": "refresh_captcha",
+      "type": "security",
+      "label": "主動點擊換圖",
+      "sublabel": "點擊 #changePicture 更換驗證碼",
+      "pos": [670, 410],
+      "size": [130, 60],
+      "tag": "重試迴圈"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "驗證碼截取層",
+      "wraps": ["detect_captcha", "capture_png"]
+    },
+    {
+      "kind": "security-group",
+      "label": "智能辨識與預處理層",
+      "wraps": ["preprocess_img", "ddddocr_predict", "sanitize_text"]
+    },
+    {
+      "kind": "region",
+      "label": "欄位填入與換圖重試層",
+      "wraps": ["fill_input_dom", "refresh_captcha"]
+    }
+  ],
+  "connections": [
+    { "id": "o1", "from": "detect_captcha", "to": "capture_png", "variant": "emphasis" },
+    { "id": "o2", "from": "capture_png", "to": "preprocess_img", "variant": "emphasis" },
+    { "id": "o3", "from": "preprocess_img", "to": "ddddocr_predict", "variant": "emphasis" },
+    { "id": "o4", "from": "ddddocr_predict", "to": "sanitize_text", "variant": "emphasis" },
+    { "id": "o5", "from": "sanitize_text", "to": "fill_input_dom", "variant": "emphasis" },
+    { "id": "o6", "from": "ddddocr_predict", "to": "refresh_captcha", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "o7", "from": "refresh_captcha", "to": "detect_captcha", "variant": "security", "fromSide": "left", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "內存直接擷取技術",
+      "items": [
+        "無需經由磁碟讀寫：透過 Selenium 的 screenshot_as_png 取得二進制圖片，直接於記憶體以 io.BytesIO 傳遞給 OCR，極大化推論速度與反應頻率。",
+        "針對次級驗證碼專門優化，從出現到填寫完成平均低於 300 毫秒。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "通用型文字驗證碼模型",
+      "items": [
+        "基於 ddddocr 卷積神經網路：針對英數字形背景干擾線、字體扭曲具備高度強韌辨識能力。",
+        "字串合法性檢查：推論結果自動濾除特殊字元與空白，確保完全吻合表單長度需求。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "多重重試與自動換圖機制",
+      "items": [
+        "遇到模糊難辨或後端報驗證碼錯誤時，自動點擊 #changePicture / #changeVoice 重新載入新驗證碼圖形。",
+        "支援最多 3 輪次級重試，防止因單一圖像雜訊卡死整個撿票排程。"
+      ]
+    }
+  ]
+}

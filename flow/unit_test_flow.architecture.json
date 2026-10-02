@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "單元測試與離線品質保證流程 (Unit Testing & QA Flow)",
+    "subtitle": "包含純邏輯檢驗、HTML離線Fixtures解析、SQLite資料庫隔離與一鍵全模組整合測試",
+    "output": "unit_test_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "full-test-suite",
+        "label": "完整測試流水線",
+        "focus": ["runner_cli", "test_logic", "test_html", "test_db", "test_report"],
+        "note": "自 CLI / 腳本觸發，平行執行三大單元測試模組並產出彙整報告。"
+      },
+      {
+        "id": "offline-html-guard",
+        "label": "HTML 離線解析與防回歸",
+        "focus": ["html_fixtures", "bs4_parser", "test_html"],
+        "note": "脫離瀏覽器與網路，直接藉由本機 HTML 範本極速重現改版並驗證欄位解析。"
+      },
+      {
+        "id": "db-isolation",
+        "label": "SQLite 臨時隔離環境",
+        "focus": ["pytest_tmp_path", "sqlite_memory", "test_db"],
+        "note": "使用獨立 tmp_path 與 WAL 模式，保證測試資料絕不污染正式 autopilot.db。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "runner_cli",
+      "type": "cli",
+      "label": "測試啟動器",
+      "sublabel": "./run_tests.sh [1|2|3]",
+      "pos": [40, 260],
+      "size": [140, 60],
+      "tag": "CLI / Pytest"
+    },
+    {
+      "id": "test_logic",
+      "type": "test_module",
+      "label": "模組 1: 純邏輯檢驗",
+      "sublabel": "身分證演算法 + 24:00換日",
+      "pos": [260, 140],
+      "size": [160, 60],
+      "tag": "test_1_pure_logic.py"
+    },
+    {
+      "id": "test_html",
+      "type": "test_module",
+      "label": "模組 2: HTML 離線解析",
+      "sublabel": "Fixtures 欄位與張數提取",
+      "pos": [260, 260],
+      "size": [160, 60],
+      "tag": "test_2_html_parsing.py"
+    },
+    {
+      "id": "test_db",
+      "type": "test_module",
+      "label": "模組 3: SQLite 隔離持久化",
+      "sublabel": "CRUD + ticket_qty + 佇列截斷",
+      "pos": [260, 380],
+      "size": [160, 60],
+      "tag": "test_3_db_and_state.py"
+    },
+    {
+      "id": "html_fixtures",
+      "type": "storage",
+      "label": "HTML Fixtures 範本庫",
+      "sublabel": "成功/客滿/多張連號",
+      "pos": [480, 260],
+      "size": [150, 60],
+      "tag": "tests/fixtures/"
+    },
+    {
+      "id": "sqlite_memory",
+      "type": "database",
+      "label": "隔離資料庫",
+      "sublabel": "tmp_path 暫存 DB",
+      "pos": [480, 380],
+      "size": [150, 60],
+      "tag": "完全隔離"
+    },
+    {
+      "id": "test_report",
+      "type": "report",
+      "label": "測試報告與摘要",
+      "sublabel": "綠燈 PASS (毫秒級完成)",
+      "pos": [700, 260],
+      "size": [150, 60],
+      "tag": "26 Tests Passed"
+    }
+  ],
+  "connections": [
+    {"from": "runner_cli", "to": "test_logic", "label": "執行模組 1"},
+    {"from": "runner_cli", "to": "test_html", "label": "執行模組 2"},
+    {"from": "runner_cli", "to": "test_db", "label": "執行模組 3"},
+    {"from": "html_fixtures", "to": "test_html", "label": "載入離線網頁"},
+    {"from": "sqlite_memory", "to": "test_db", "label": "隔離讀寫"},
+    {"from": "test_logic", "to": "test_report", "label": "回報結果"},
+    {"from": "test_html", "to": "test_report", "label": "回報結果"},
+    {"from": "test_db", "to": "test_report", "label": "回報結果"}
+  ]
+}

@@ -378,7 +378,7 @@ paths:
       tags:
         - Tickets
       summary: List all successfully booked tickets
-      description: Reads and parses records stored in successful_tickets.json and successful_tickets.txt.
+      description: Reads and parses all successfully booked tickets from the unified SQLite database (autopilot.db).
       responses:
         '200':
           description: List of stored ticket bookings
@@ -394,7 +394,7 @@ paths:
       tags:
         - Tickets
       summary: Cancel ticket online and delete local record
-      description: Interacts with the official passenger portal to submit an online refund/cancellation, and purges the record locally.
+      description: Interacts with the official passenger portal to submit an online refund/cancellation, and purges the record atomically from the SQLite database.
       requestBody:
         required: true
         content:
@@ -640,6 +640,18 @@ components:
         booking_code:
           type: string
           example: "88776655"
+        port:
+          type: integer
+          example: 8082
+        task_id:
+          type: string
+          example: "task_1790079735_969b"
+        task_name:
+          type: string
+          example: "任務 2"
+        session_id:
+          type: integer
+          example: 1
         pid:
           type: string
           example: "A123456789"
@@ -655,6 +667,15 @@ components:
         seat:
           type: string
           example: "3車12號"
+        ride_date:
+          type: string
+          example: "2026/10/16"
+        start_station:
+          type: string
+          example: "臺北"
+        end_station:
+          type: string
+          example: "板橋"
         pay_deadline:
           type: string
           example: "2026/09/25 24:00"

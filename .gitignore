@@ -14,6 +14,8 @@ __pycache__/
 config.json
 .config*
 runtime_status*.json
+*.db
+*.sqlite3
 
 # User Ticket Records & Backups
 successful_tickets.txt
@@ -21,7 +23,7 @@ successful_tickets.json
 *.bak
 
 # Test Data & Debug Dumps
-test_*.py
+/test_*.py
 debug_*.html
 all_stations_dump.json
 stations.json

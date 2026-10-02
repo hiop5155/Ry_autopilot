@@ -1,6 +1,6 @@
 // client/src/components/MonitorTerminal.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { Terminal, FileText, ArrowDown } from "lucide-react";
+import { Terminal, ArrowDown } from "lucide-react";
 import { useI18n } from "../context/I18nContext";
 import { formatLogMessage } from "../i18n/logTranslator";
 
@@ -77,11 +77,6 @@ function MonitorTerminal({ logs = [], roundCount = 0 }) {
               <span>{t("terminal_scroll_paused")}</span>
             </span>
           )}
-        </div>
-
-        <div className="text-[11px] sm:text-xs text-slate-500 flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-          <span>{t("save_hint")}</span>
         </div>
       </div>
 

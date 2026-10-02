@@ -12,6 +12,7 @@ import webbrowser
 from http.server import ThreadingHTTPServer
 
 from . import state
+from .. import db
 from .handlers import AppRequestHandler
 
 # 程序結束時安全標記任務停止並持久化保存設定（不刪除 /tmp 暫存檔）
@@ -43,7 +44,7 @@ def run_web_server(port: int = 8080, open_chrome: bool = True, debug: bool = Fal
 
     actual_port = current_port
     state.init_status_paths(actual_port)
-    print(f"[INFO] 狀態持久化檔案: {state.STATUS_FILE_TMP}")
+    print(f"[INFO] 狀態持久化資料庫: {db.get_db_path()}")
     print(f"\n[INFO] 本地 Web 伺服器已於 http://127.0.0.1:{actual_port} 啟動")
     if debug:
         print("[INFO] >>> DEBUG 詳細除錯日誌模式已啟動 <<<")

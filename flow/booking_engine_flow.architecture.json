@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "核心訂票引擎處理流程 (Booking Engine Flow)",
+    "subtitle": "包含標準入口切換、多行程欄位隔離防護、OCR次級驗證與客滿智能判讀流程",
+    "output": "booking_engine_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main-path",
+        "label": "主訂票成功路徑",
+        "focus": ["driver_init", "nav_portal", "fill_form", "isolate_trips", "submit_action", "response_poll", "result_success"],
+        "note": "自瀏覽器初始化、安全填單、送出查詢到訂票成功之核心主流程。"
+      },
+      {
+        "id": "form-protection",
+        "label": "多行程欄位隔離防護",
+        "focus": ["fill_form", "isolate_trips", "submit_action"],
+        "note": "強制隔離非單程 (TRIP2/TRIP3) 欄位為 disabled，防範 POST 參數污染與伺服器物件綁定報錯。"
+      },
+      {
+        "id": "response-handling",
+        "label": "狀態決策與容錯分支",
+        "focus": ["response_poll", "ocr_sub_verify", "result_no_seats", "result_success", "result_retry", "result_input_err", "session_recovery"],
+        "note": "涵蓋客滿無票、次級驗證碼辨識重試、網路異常重整與連線自癒通道。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "driver_init",
+      "type": "backend",
+      "label": "啟動 Chrome",
+      "sublabel": "Anti-bot + 直連 IPv4",
+      "pos": [40, 260],
+      "size": [130, 60],
+      "tag": "DNS Direct"
+    },
+    {
+      "id": "nav_portal",
+      "type": "frontend",
+      "label": "載入標準入口",
+      "sublabel": "官方標準個人訂票頁面",
+      "pos": [250, 260],
+      "size": [130, 60],
+      "tag": "等待 #pid"
+    },
+    {
+      "id": "fill_form",
+      "type": "backend",
+      "label": "填寫乘車條件",
+      "sublabel": "PID / 起訖站 / 日期 / 票數",
+      "pos": [460, 260],
+      "size": [130, 60],
+      "tag": "自適應 DOM"
+    },
+    {
+      "id": "isolate_trips",
+      "type": "security",
+      "label": "多行程欄位隔離",
+      "sublabel": "TRIP1啟用, TRIP2/3 禁用",
+      "pos": [670, 260],
+      "size": [130, 60],
+      "tag": "核心修復"
+    },
+    {
+      "id": "submit_action",
+      "type": "frontend",
+      "label": "觸發查詢送出",
+      "sublabel": "按鈕點擊 / 原生 Form",
+      "pos": [880, 260],
+      "size": [130, 60],
+      "tag": "POST"
+    },
+    {
+      "id": "response_poll",
+      "type": "messagebus",
+      "label": "回應輪詢檢測",
+      "sublabel": "檢測頁面回饋關鍵字",
+      "pos": [1090, 260],
+      "size": [130, 60],
+      "tag": "多輪等待"
+    },
+    {
+      "id": "ocr_sub_verify",
+      "type": "messagebus",
+      "label": "次級驗證碼辨識",
+      "sublabel": "#codeimg 出現 / v3未過",
+      "pos": [880, 110],
+      "size": [130, 60],
+      "tag": "ddddocr 預測"
+    },
+    {
+      "id": "result_no_seats",
+      "type": "external",
+      "label": "客滿無剩餘座位",
+      "sublabel": "查無可售座位 / 均無空位",
+      "pos": [1300, 140],
+      "size": [140, 60],
+      "tag": "NO_SEATS"
+    },
+    {
+      "id": "result_success",
+      "type": "database",
+      "label": "訂票成功！",
+      "sublabel": "解析訂票代碼/期限/座位",
+      "pos": [1300, 230],
+      "size": [140, 60],
+      "tag": "SUCCESS"
+    },
+    {
+      "id": "result_retry",
+      "type": "security",
+      "label": "伺服器臨時異常",
+      "sublabel": "查詢時出現錯誤 -> 重新操作",
+      "pos": [1300, 320],
+      "size": [140, 60],
+      "tag": "RETRY"
+    },
+    {
+      "id": "result_input_err",
+      "type": "security",
+      "label": "輸入資料有誤",
+      "sublabel": "PID或起訖站檢驗未過",
+      "pos": [1300, 410],
+      "size": [140, 60],
+      "tag": "INPUT_ERROR"
+    },
+    {
+      "id": "session_recovery",
+      "type": "security",
+      "label": "Session 自癒修復",
+      "sublabel": "釋放失效連線並重啟實例",
+      "pos": [250, 420],
+      "size": [130, 60],
+      "tag": "自動重啟"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "瀏覽器環境與連線層",
+      "wraps": ["driver_init", "session_recovery"]
+    },
+    {
+      "kind": "security-group",
+      "label": "表單設定與防污染隔離層",
+      "wraps": ["fill_form", "isolate_trips", "submit_action"]
+    },
+    {
+      "kind": "region",
+      "label": "回饋檢測與狀態決策層",
+      "wraps": ["response_poll", "ocr_sub_verify", "result_no_seats", "result_success", "result_retry", "result_input_err"]
+    }
+  ],
+  "connections": [
+    { "id": "c1", "from": "driver_init", "to": "nav_portal", "variant": "emphasis" },
+    { "id": "c2", "from": "nav_portal", "to": "fill_form", "variant": "emphasis" },
+    { "id": "c3", "from": "fill_form", "to": "isolate_trips", "variant": "emphasis" },
+    { "id": "c4", "from": "isolate_trips", "to": "submit_action", "variant": "emphasis" },
+    { "id": "c5", "from": "submit_action", "to": "response_poll", "label": "POST", "variant": "emphasis" },
+    { "id": "c6", "from": "response_poll", "to": "result_success", "variant": "emphasis" },
+    { "id": "c7", "from": "response_poll", "to": "result_no_seats", "variant": "dashed" },
+    { "id": "c8", "from": "response_poll", "to": "ocr_sub_verify", "variant": "security", "fromSide": "top", "toSide": "right" },
+    { "id": "c9", "from": "ocr_sub_verify", "to": "submit_action", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "c10", "from": "response_poll", "to": "result_retry", "variant": "security" },
+    { "id": "c11", "from": "response_poll", "to": "result_input_err", "variant": "security" },
+    { "id": "c12", "from": "nav_portal", "to": "session_recovery", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+    { "id": "c13", "from": "session_recovery", "to": "driver_init", "variant": "dashed", "fromSide": "left", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "訂票邏輯重大修正亮點",
+      "items": [
+        "標準入口切換：廢棄舊版重定向網址，直接訪問官方標準個人訂票入口，確保連線 Session 完整。",
+        "多行程嚴格隔離：強制將非單程 (TRIP2/TRIP3) 的輸入欄位設為 disabled，徹底杜絕 POST 空參數污染導致伺服器報錯。",
+        "智能客滿辨識：補全「查無可售座位」、「均沒有空位」等回饋關鍵字，確保精確判定為 NO_SEATS 並持續輪詢。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "雙模驗證碼防護機制",
+      "items": [
+        "reCAPTCHA v3 優先：正常情況下無圖形驗證碼，直接提交以原生通道完成查詢。",
+        "次級圖形驗證碼自適應：若偵測到 #codeimg 出現，自動調用 ddddocr 模型預測驗證碼並填入重送，支援多輪重試。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "連線抗敏與自癒韌性",
+      "items": [
+        "直連 IPv4 配置：透過 host-resolver-rules 避開特定環境下 IPv6 路由超時黑洞。",
+        "Session 失效復原：偵測到瀏覽器中斷或無效 Session 時，主動釋放舊資源並重建實例，實現無人值守長期穩定運行。"
+      ]
+    }
+  ]
+}

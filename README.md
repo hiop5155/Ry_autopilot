@@ -40,21 +40,24 @@ tn_test/
 │   └── package.json            # Frontend dependencies & scripts
 │
 ├── app/                        # Core Backend & Automation Engine (Python 3)
+│   ├── db.py                   # Unified SQLite database engine (Port -> Tasks -> Tickets)
 │   ├── config.py               # Config loader and time window validation
 │   ├── stations.py             # Station catalog and 4-digit code mapping
 │   ├── ocr.py                  # Deep-learning OCR captcha recognition engine
 │   ├── timetable.py            # Real-time timetable query module
 │   ├── booking_engine.py       # Automated booking engine
 │   ├── cancel_ticket.py        # Online ticket cancellation & deadline handler
-│   ├── storage.py              # Local persistent ticket storage (JSON & TXT)
+│   ├── storage.py              # Persistent ticket storage gateway (SQLite & TXT log)
 │   ├── id_helper.py            # Passenger identification checksum validator & generator
 │   ├── cli.py                  # Terminal CLI fallback mode
 │   └── web/                    # Embedded Web Server Subsystem
 │       ├── server.py           # HTTP server bootstrap & port management
-│       ├── state.py            # Multi-task state storage & thread locks
+│       ├── state.py            # SQLite-backed multi-task state manager
 │       ├── worker.py           # Background multi-task parallel polling threads
 │       ├── handlers.py         # RESTful API router (serves /api & client/dist SPA)
 │       └── static/             # Legacy native HTML fallback
+│
+├── ~/.Ry_autopilot/           # Centralized persistence home (~/.Ry_autopilot/autopilot.db)
 │
 ├── package.json                # Root full-stack orchestration scripts
 ├── main.py                     # Application entry point (Web / CLI router)
@@ -130,6 +133,22 @@ make dist
 
 ---
 
+### 6. Automated Unit Testing & QA Suite
+The repository includes a decoupled, sub-second unit test suite that executes completely offline without network latency or Chrome browser overhead:
+
+```bash
+# Run the entire test suite (26 tests in < 1 second)
+./run_tests.sh
+
+# Run specific testing modules:
+./run_tests.sh 1    # Pure logic & date parsing (tests/test_1_pure_logic.py)
+./run_tests.sh 2    # HTML fixtures & offline parsing (tests/test_2_html_parsing.py)
+./run_tests.sh 3    # SQLite isolation & task state (tests/test_3_db_and_state.py)
+```
+For detailed maintenance guidelines and website redesign fixture SOPs, refer to [`TESTING.md`](TESTING.md).
+
+---
+
 ## 🛠️ RESTful API Specification
 
 The full API schema is formally defined according to the **OpenAPI 3.0.3** standard in [`openapi.yaml`](openapi.yaml). You can import it into Swagger Editor, Postman, or Redoc for interactive documentation and testing.
@@ -145,7 +164,7 @@ The full API schema is formally defined according to the **OpenAPI 3.0.3** stand
 | `/api/timetable` | POST | Query official railway schedules for specified date & stations |
 | `/api/start` | POST | Launch background seat-hunting worker for a specific task |
 | `/api/stop` | POST | Halt background monitoring for a specific task |
-| `/api/tickets` | GET | List all booked tickets stored in `successful_tickets.json` |
+| `/api/tickets` | GET | List all booked tickets stored in the SQLite database (`autopilot.db`) |
 | `/api/cancel_ticket` | POST | Execute official online ticket cancellation and remove local record |
 
 ---

@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 
 from ..booking_engine import BookingEngine
 from . import state
+from .. import db
 
 
 def polling_worker(
@@ -30,7 +31,10 @@ def polling_worker(
 ):
     lock = state.get_lock()
     curr_state = state.get_task_state(task_id)
+    stop_event = state.get_stop_event(task_id)
+    stop_event.clear()
     debug_mode = state.is_debug_mode()
+    port = state.get_server_port()
 
     # 每個任務建立獨立的訂票引擎實例，支援平行獨立搶票
     engine = BookingEngine(headless=True, debug=debug_mode)
@@ -39,6 +43,7 @@ def polling_worker(
     # 判斷是否啟用拆成 N 筆 1 張 (逐張撿票)
     is_split = (split_mode == "split" and qty > 1)
     target_per_train = qty
+    target_ticket_count = qty
     # 每次調用票務下訂的張數 (拆單為 1 張，整筆為目標張數)
     req_qty = 1 if is_split else target_per_train
 
@@ -60,14 +65,19 @@ def polling_worker(
     remaining_trains = list(clean_targets)
     booked_tickets: List[Dict[str, Any]] = []
 
-    with lock:
-        curr_state["total_target_trains"] = list(clean_targets)
-        curr_state["target_trains"] = list(remaining_trains)
-        curr_state["booked_tickets"] = list(booked_tickets)
-        curr_state["split_mode"] = split_mode
-        curr_state["booked_count"] = 0
-        curr_state["target_count"] = len(clean_targets) * target_per_train if clean_targets else qty
-        state.save_runtime_status()
+    # 開啟全新 Session，session_id 自增 1，歷史車票永存於 SQLite
+    session_id = int(curr_state.get("session_id", 1)) + 1
+    target_count = len(clean_targets) * target_per_train if clean_targets else qty
+    task_name = curr_state.get("name", "任務")
+    db.update_task_fields(port, task_id, {
+        "session_id": session_id,
+        "is_running": 1,
+        "round_count": 0,
+        "countdown": 0,
+        "booked_count": 0,
+        "target_count": target_count,
+        "target_trains": remaining_trains,
+    })
 
     def log(m: str):
         state.add_log(m, task_id=task_id)
@@ -89,45 +99,57 @@ def polling_worker(
             else:
                 log(f"目標時段: {start_time}~{end_time} (依時段單程訂票，每筆 {qty} 張)")
 
-        while True:
-            with lock:
-                if not curr_state["is_running"]:
-                    break
+        while not stop_event.is_set():
+            round_count += 1
+            now_str = time.strftime("%H:%M:%S")
+            state.update_task_progress(task_id, round_count, 0.0)
+
+            # 長時間運行維護：每 150 輪主動回收 Chrome 記憶體，防止長時間運行導致瀏覽器崩潰或斷線
+            if round_count > 1 and (round_count - 1) % 150 == 0:
+                log(f"♻️ [定期維護] 已連續監控 {round_count - 1} 輪，正在主動回收 Chrome 資源以釋放記憶體...")
+                try:
+                    engine.restart()
+                    log("♻️ [定期維護] Chrome 瀏覽器資源回收完成，重啟就緒。")
+                except Exception as ex:
+                    log(f"⚠️ [定期維護] 重啟瀏覽器發生微誤: {ex}")
 
             # ----------------------------------------------------
-            # 模式 A: 指定特定車次列表 (每批上限 3 班，訂滿即移除)
+            # 模式 A: 指定特定車次列表 (每批上限 3 班，動態重新合併)
             # ----------------------------------------------------
             if clean_targets:
-                # 檢查所有 req 佇列是否均已全空 (代表所有車次均已滿額訂妥)
-                all_batches_empty = all(len(b) == 0 for b in req_batches)
-                if all_batches_empty:
-                    with lock:
-                        curr_state["is_running"] = False
-                        curr_state["target_trains"] = []
-                        state.save_runtime_status()
+                remaining_trains = [t for t in clean_targets if train_booked_counts[t] < target_per_train]
+
+                # 檢查是否所有目標車次均已訂滿
+                if not remaining_trains:
+                    state.finish_task(task_id)
                     log(f"🎊 太棒了！所選之 {len(clean_targets)} 班車次均已全數訂滿 {target_per_train} 張！任務完成。")
                     break
 
-                round_count += 1
-                now_str = time.strftime("%H:%M:%S")
+                # 1. 輸出目前所有目標車次的即時進度 (Remaining trains #n，每輪與 check 同頻率印出)
+                if is_split:
+                    rem_status_list = [f"{t}({train_booked_counts[t]}/{target_per_train})" for t in clean_targets]
+                else:
+                    rem_status_list = [f"{t}({'1/1' if train_booked_counts[t] >= target_per_train else '0/1'})" for t in clean_targets]
+                log(f"📌 各班待訂進度：{', '.join(rem_status_list)}，持續撿票監控中...")
 
-                with lock:
-                    curr_state["round_count"] = round_count
-                    curr_state["countdown"] = 0
+                # 2. 動態將未訂滿車次重新每 3 班一組切分 (充分發揮官方表單一次指定 3 班志願序能力)
+                req_batches: List[List[str]] = [
+                    remaining_trains[i:i + 3] for i in range(0, len(remaining_trains), 3)
+                ]
 
-                remaining_trains = [t for t in clean_targets if train_booked_counts[t] < target_per_train]
-                rem_info = f"{len(remaining_trains)}/{len(clean_targets)} 班待訂: {', '.join(remaining_trains)}"
+                if is_split:
+                    rem_detail_list = [f"{t}({train_booked_counts[t]}/{target_per_train})" for t in remaining_trains]
+                    rem_info = f"{len(remaining_trains)}/{len(clean_targets)} 班待訂: {', '.join(rem_detail_list)}"
+                else:
+                    rem_info = f"{len(remaining_trains)}/{len(clean_targets)} 班待訂: {', '.join(remaining_trains)}"
+
+                # 3. 輸出檢查座位資訊 (Check #n)
                 log(f"[{now_str}] 第 {round_count} 次檢查座位 ({rem_info})...")
 
-                # 依序執行各個非空訂票 req
+                # 依序執行各個非空訂票 req (每批最多 3 班)
                 for b_idx, batch in enumerate(req_batches):
-                    with lock:
-                        if not curr_state["is_running"]:
-                            break
-
-                    # 若此 req 內的所有車次都已訂滿移除了，跳過此請求
-                    if len(batch) == 0:
-                        continue
+                    if stop_event.is_set():
+                        break
 
                     batch_desc = f"批次 {b_idx + 1}/{len(req_batches)} ({', '.join(batch)})"
                     res = engine.book_by_train_numbers(
@@ -149,6 +171,16 @@ def polling_worker(
                             booked_train = batch[0]
                             ticket_data["train_no"] = booked_train
 
+                        # 確保乘車日與行程區間齊全
+                        if not ticket_data.get("ride_date"):
+                            ticket_data["ride_date"] = ride_date
+                        if not ticket_data.get("start_station"):
+                            ticket_data["start_station"] = start_station
+                        if not ticket_data.get("end_station"):
+                            ticket_data["end_station"] = end_station
+                        if not ticket_data.get("trip_info"):
+                            ticket_data["trip_info"] = f"{ride_date} {start_station} ➔ {end_station}"
+
                         # 增加該車次的訂票成功張數
                         inc = 1 if is_split else target_per_train
                         if booked_train in train_booked_counts:
@@ -157,21 +189,23 @@ def polling_worker(
                             booked_train = batch[0]
                             train_booked_counts[booked_train] += inc
 
-                        # 若該車次累計已達到 target_per_train 張，從所有包含它的 req 佇列中移除
-                        if booked_train in train_booked_counts and train_booked_counts[booked_train] >= target_per_train:
-                            for b in req_batches:
-                                if booked_train in b:
-                                    b.remove(booked_train)
-
                         remaining_trains = [t for t in clean_targets if train_booked_counts[t] < target_per_train]
 
-                        with lock:
-                            booked_tickets.append(ticket_data)
-                            curr_state["booked_tickets"] = list(booked_tickets)
-                            curr_state["booked_count"] = len(booked_tickets)
-                            curr_state["ticket_result"] = ticket_data
-                            curr_state["target_trains"] = list(remaining_trains)
-                            state.save_runtime_status()
+                        # 注入 SQLite 所需之多租戶關聯標籤並保存車票
+                        ticket_data["port"] = port
+                        ticket_data["task_id"] = task_id
+                        ticket_data["task_name"] = task_name
+                        ticket_data["session_id"] = session_id
+                        ticket_data["ticket_qty"] = 1 if is_split else target_per_train
+                        db.save_ticket(ticket_data)
+
+                        booked_tickets.append(ticket_data)
+                        # 原子更新任務狀態欄位，絕不覆蓋 logs
+                        db.update_task_fields(port, task_id, {
+                            "target_trains": remaining_trains,
+                            "booked_count": len(booked_tickets),
+                            "ticket_result": ticket_data,
+                        })
 
                         if is_split:
                             curr_t_count = train_booked_counts.get(booked_train, 1)
@@ -180,20 +214,12 @@ def polling_worker(
                             completed_count = len(clean_targets) - len(remaining_trains)
                             log(f"🎉 撿票成功！車次 {booked_train} | 訂票代碼：{booking_code} (進度: {completed_count}/{len(clean_targets)} 班)")
 
-                        # 檢查所有 req 批次是否已全空 (代表所有目標車次全滿)
-                        if all(len(b) == 0 for b in req_batches):
-                            with lock:
-                                curr_state["is_running"] = False
-                                curr_state["target_trains"] = []
-                                state.save_runtime_status()
+                        # 檢查是否所有目標車次全滿
+                        if len(remaining_trains) == 0:
+                            state.finish_task(task_id)
                             log(f"🎊 太棒了！所選之 {len(clean_targets)} 班車次均已全數訂滿 {target_per_train} 張！任務完成。")
                             break
                         else:
-                            if is_split:
-                                rem_status_list = [f"{t}({train_booked_counts[t]}/{target_per_train})" for t in clean_targets if train_booked_counts[t] < target_per_train]
-                                log(f"📌 各班待訂進度：{', '.join(rem_status_list)}，持續撿票監控中...")
-                            else:
-                                log(f"📌 剩餘待訂車次：{', '.join(remaining_trains)}，持續撿票監控中...")
                             engine.reset_for_next_poll()
 
                     else:
@@ -205,6 +231,8 @@ def polling_worker(
                             log_msg = f"[{now_str}] [{batch_desc}] 目前無剩餘座位{ocr_hint}"
                         elif status == "CAPTCHA_FAIL":
                             log_msg = f"[{now_str}] [{batch_desc}] 驗證碼微誤{ocr_hint}，換圖再試"
+                        elif status == "SESSION_ERROR":
+                            log_msg = f"[{now_str}] [{batch_desc}] 瀏覽器連線中斷，已完成自動重啟修復，將於下輪重試"
                         else:
                             log_msg = f"[{now_str}] [{batch_desc}] 訂票反饋: {res.get('msg', '無座位')}{ocr_hint}"
                         log(log_msg)
@@ -212,14 +240,12 @@ def polling_worker(
 
                     # 批次間停留 0.5 ~ 1.0 秒
                     if b_idx < len(req_batches) - 1:
-                        time.sleep(random.uniform(0.5, 1.0))
+                        if stop_event.wait(timeout=random.uniform(0.5, 1.0)):
+                            break
 
                 # 檢查整輪結束後是否已全數完成
-                if all(len(b) == 0 for b in req_batches):
-                    with lock:
-                        curr_state["is_running"] = False
-                        curr_state["target_trains"] = []
-                        state.save_runtime_status()
+                if clean_targets and len(remaining_trains) == 0:
+                    state.finish_task(task_id)
                     log(f"🎊 太棒了！所選之 {len(clean_targets)} 班車次均已全數訂滿 {target_per_train} 張！任務完成。")
                     break
 
@@ -247,27 +273,39 @@ def polling_worker(
                     ticket_data = res.get("ticket_info") or res
                     booking_code = ticket_data.get("booking_code", "")
 
-                    with lock:
-                        booked_tickets.append(ticket_data)
-                        curr_state["booked_tickets"] = list(booked_tickets)
-                        curr_state["booked_count"] = len(booked_tickets)
-                        curr_state["ticket_result"] = ticket_data
+                    # 確保乘車日與行程區間齊全
+                    if not ticket_data.get("ride_date"):
+                        ticket_data["ride_date"] = ride_date
+                    if not ticket_data.get("start_station"):
+                        ticket_data["start_station"] = start_station
+                    if not ticket_data.get("end_station"):
+                        ticket_data["end_station"] = end_station
+                    if not ticket_data.get("trip_info"):
+                        ticket_data["trip_info"] = f"{ride_date} {start_station} ➔ {end_station}"
 
-                        if is_split:
-                            log(f"🎉 撿票成功！訂票代碼：{booking_code} (進度: {len(booked_tickets)}/{target_ticket_count} 張)")
-                        else:
-                            log(f"🎉 撿票成功！訂票電腦代碼：{booking_code}")
+                    ticket_data["port"] = port
+                    ticket_data["task_id"] = task_id
+                    ticket_data["task_name"] = task_name
+                    ticket_data["session_id"] = session_id
+                    db.save_ticket(ticket_data)
 
-                        state.save_runtime_status()
+                    booked_tickets.append(ticket_data)
+                    db.update_task_fields(port, task_id, {
+                        "booked_count": len(booked_tickets),
+                        "ticket_result": ticket_data,
+                    })
+
+                    if is_split:
+                        log(f"🎉 撿票成功！訂票代碼：{booking_code} (進度: {len(booked_tickets)}/{target_ticket_count} 張)")
+                    else:
+                        log(f"🎉 撿票成功！訂票電腦代碼：{booking_code}")
 
                     if is_split and len(booked_tickets) >= target_ticket_count:
-                        with lock:
-                            curr_state["is_running"] = False
+                        state.finish_task(task_id)
                         log(f"🎊 已成功訂妥全部 {target_ticket_count} 張車票（共 {len(booked_tickets)} 筆訂單）！任務完成。")
                         break
                     elif not is_split:
-                        with lock:
-                            curr_state["is_running"] = False
+                        state.finish_task(task_id)
                         log("🎊 恭喜！已成功訂得車票！任務結束。")
                         break
                     else:
@@ -283,6 +321,8 @@ def polling_worker(
                         log_msg = f"[{finish_str}] 目前無剩餘座位{ocr_hint}，等待下次重新查詢..."
                     elif status == "CAPTCHA_FAIL":
                         log_msg = f"[{finish_str}] 驗證碼微誤{ocr_hint}，等待後重新整理再試..."
+                    elif status == "SESSION_ERROR":
+                        log_msg = f"[{finish_str}] 瀏覽器連線中斷，已完成自動重啟修復，將於下次重新查詢..."
                     else:
                         log_msg = f"[{finish_str}] {res.get('msg', '查詢完畢')}，等待下次查詢..."
 
@@ -293,27 +333,20 @@ def polling_worker(
             actual_delay = max(2.0, interval + random.uniform(-jitter, jitter))
             sleep_end = time.time() + actual_delay
             while time.time() < sleep_end:
-                with lock:
-                    if not curr_state["is_running"]:
-                        break
-                    curr_state["countdown"] = round(max(0.0, sleep_end - time.time()), 1)
-                time.sleep(0.5)
+                if stop_event.is_set():
+                    break
+                rem_sec = round(max(0.0, sleep_end - time.time()), 1)
+                state.update_task_progress(task_id, round_count, rem_sec)
+                if stop_event.wait(timeout=0.5):
+                    break
 
-            with lock:
-                curr_state["countdown"] = 0
+            state.update_task_progress(task_id, round_count, 0.0)
 
     except Exception as e:
-        with lock:
-            curr_state["countdown"] = 0
-            curr_state["is_running"] = False
         log(f"發生異常: {e}")
     finally:
         try:
             engine.close()
         except Exception:
             pass
-        with lock:
-            curr_state["is_running"] = False
-            curr_state["countdown"] = 0
-            state.set_task_thread(task_id, None)
-        state.save_runtime_status()
+        state.finish_task(task_id)

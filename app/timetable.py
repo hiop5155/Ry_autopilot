@@ -48,6 +48,15 @@ def query_train_timetable(ride_date: str, start_station: str, end_station: str,
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
+    try:
+        import socket
+        addr_info = socket.getaddrinfo("tip.railway.gov.tw", None, socket.AF_INET)
+        if addr_info:
+            ipv4 = addr_info[0][4][0]
+            options.add_argument(f"--host-resolver-rules=MAP tip.railway.gov.tw {ipv4}")
+    except Exception:
+        pass
+
     driver = None
     trains: List[Dict[str, Any]] = []
 

@@ -1,6 +1,6 @@
 // client/src/components/CriteriaCard.jsx
 import React, { useRef, useMemo } from "react";
-import { ArrowUpDown, Dices, Calendar, Clock, Ticket, Search, CheckCircle2, AlertCircle, ChevronDown, Info } from "lucide-react";
+import { ArrowUpDown, Dices, Calendar, Clock, Ticket, Search, CheckCircle2, AlertCircle, ChevronDown, Info, Lock } from "lucide-react";
 import StationCombobox from "./StationCombobox";
 import { useI18n } from "../context/I18nContext";
 import { validateROCId, generateROCId } from "../utils/idHelper";
@@ -78,11 +78,15 @@ export default function CriteriaCard({
   };
 
   return (
-    <section className="bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-xl shadow-slate-950/40 flex flex-col gap-4">
+    <section className={`backdrop-blur-xl border rounded-2xl p-4 sm:p-5 shadow-xl transition-all flex flex-col gap-4 ${
+      isLocked
+        ? "bg-slate-900/60 border-amber-500/30 shadow-none ring-1 ring-amber-500/20"
+        : "bg-slate-900/80 border-slate-800/80 shadow-slate-950/40"
+    }`}>
       {/* 標題列 */}
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
         <div className="flex items-center gap-2">
-          <Ticket className="w-5 h-5 text-cyan-400" />
+          <Ticket className={`w-5 h-5 ${isLocked ? "text-amber-400" : "text-cyan-400"}`} />
           <h2 className="text-base font-bold text-white tracking-wide">
             {t("card1_title")}
           </h2>
@@ -90,11 +94,24 @@ export default function CriteriaCard({
 
         {/* 鎖定狀態指示 */}
         {isLocked && (
-          <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-medium animate-pulse">
-            {t("polling_active_badge")}
+          <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1.5 animate-pulse">
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>{t("polling_active_badge")}</span>
           </span>
         )}
       </div>
+
+      {/* 鎖定全幅醒目提示橫幅 */}
+      {isLocked && (
+        <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200/90 text-xs shadow-inner animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="w-6 h-6 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 text-amber-400">
+            <Lock className="w-3.5 h-3.5" />
+          </div>
+          <span className="font-medium leading-relaxed">
+            {t("criteria_locked_banner")}
+          </span>
+        </div>
+      )}
 
       {/* 1. PID */}
       <div>
@@ -113,7 +130,9 @@ export default function CriteriaCard({
               placeholder={t("pid_ph")}
               value={formState.pid}
               onChange={(e) => onChange("pid", e.target.value.toUpperCase())}
-              className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-60 transition-all uppercase"
+              className={`w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all uppercase ${
+                isLocked ? "opacity-60 cursor-not-allowed bg-slate-950/60 select-none" : ""
+              }`}
             />
             {formState.pid.length > 0 && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -187,6 +206,7 @@ export default function CriteriaCard({
             value={formState.ride_date || ""}
             onChange={(e) => onChange("ride_date", e.target.value)}
             onClick={(e) => {
+              if (isLocked) return;
               try {
                 if (typeof e.target.showPicker === "function") {
                   e.target.showPicker();
@@ -194,7 +214,9 @@ export default function CriteriaCard({
               } catch {}
             }}
             style={{ colorScheme: "dark" }}
-            className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-60 transition-all cursor-pointer min-h-[44px]"
+            className={`w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all min-h-[44px] ${
+              isLocked ? "opacity-60 cursor-not-allowed bg-slate-950/60 select-none" : "cursor-pointer"
+            }`}
           />
         </div>
         {/* 開放訂票時間說明 Note (不阻擋選取，友善提示) */}
@@ -216,7 +238,9 @@ export default function CriteriaCard({
               disabled={isLocked}
               value={formState.start_time}
               onChange={(e) => onChange("start_time", e.target.value)}
-              className="w-full pl-3 pr-8 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-60 transition-all cursor-pointer appearance-none"
+              className={`w-full pl-3 pr-8 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all appearance-none ${
+                isLocked ? "opacity-60 cursor-not-allowed bg-slate-950/60 select-none" : "cursor-pointer"
+              }`}
             >
               {timeOptions.map((opt) => (
                 <option key={opt} value={opt} className="bg-slate-900 text-white">
@@ -238,7 +262,9 @@ export default function CriteriaCard({
               disabled={isLocked}
               value={formState.end_time}
               onChange={(e) => onChange("end_time", e.target.value)}
-              className="w-full pl-3 pr-8 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-60 transition-all cursor-pointer appearance-none"
+              className={`w-full pl-3 pr-8 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all appearance-none ${
+                isLocked ? "opacity-60 cursor-not-allowed bg-slate-950/60 select-none" : "cursor-pointer"
+              }`}
             >
               {timeOptions.map((opt) => (
                 <option key={opt} value={opt} className="bg-slate-900 text-white">
@@ -262,7 +288,9 @@ export default function CriteriaCard({
             disabled={isLocked}
             value={formState.ticket_qty}
             onChange={(e) => onChange("ticket_qty", Number(e.target.value))}
-            className="w-full pl-3.5 pr-9 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-60 transition-all cursor-pointer appearance-none"
+            className={`w-full pl-3.5 pr-9 py-2.5 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all appearance-none ${
+              isLocked ? "opacity-60 cursor-not-allowed bg-slate-950/60 select-none" : "cursor-pointer"
+            }`}
           >
             <option value={1} className="bg-slate-900 text-white">{t("opt_qty_1")}</option>
             <option value={2} className="bg-slate-900 text-white">{t("opt_qty_2")}</option>
@@ -275,14 +303,18 @@ export default function CriteriaCard({
 
       {/* 6. 多張配票拆單模式 (當張數 > 1 時展示) */}
       {formState.ticket_qty > 1 && (
-        <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex flex-col gap-2">
+        <div className={`p-3 border rounded-xl flex flex-col gap-2 transition-all ${
+          isLocked ? "bg-slate-950/40 border-slate-800/80 opacity-70" : "bg-slate-950/60 border-slate-800"
+        }`}>
           <label className="text-xs font-semibold text-cyan-400">{t("lbl_split_mode")}</label>
           <div className="relative">
             <select
               disabled={isLocked}
               value={formState.split_mode}
               onChange={(e) => onChange("split_mode", e.target.value)}
-              className="w-full pl-3 pr-8 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500 appearance-none cursor-pointer"
+              className={`w-full pl-3 pr-8 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-cyan-500 appearance-none ${
+                isLocked ? "opacity-60 cursor-not-allowed bg-slate-950/60 select-none" : "cursor-pointer"
+              }`}
             >
               <option value="single" className="bg-slate-900 text-white">
                 {t("opt_mode_single_tpl", { n: formState.ticket_qty })}
@@ -306,10 +338,28 @@ export default function CriteriaCard({
         type="button"
         disabled={isLocked || isQuerying}
         onClick={onQueryTrains}
-        className="mt-1 flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-[0.99] text-white font-bold text-sm rounded-xl shadow-lg shadow-cyan-950/50 transition-all disabled:opacity-60 cursor-pointer"
+        className={`mt-1 flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl font-bold text-sm transition-all ${
+          isLocked
+            ? "bg-slate-800/80 text-slate-400 border border-slate-700/60 shadow-none cursor-not-allowed select-none"
+            : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-[0.99] text-white shadow-lg shadow-cyan-950/50 disabled:opacity-60 cursor-pointer"
+        }`}
       >
-        <Search className="w-4 h-4" />
-        <span>{isQuerying ? t("btn_querying") : t("btn_query_trains")}</span>
+        {isLocked ? (
+          <>
+            <Lock className="w-4 h-4 text-amber-400" />
+            <span>{t("btn_query_trains_locked")}</span>
+          </>
+        ) : isQuerying ? (
+          <>
+            <Search className="w-4 h-4 animate-spin" />
+            <span>{t("btn_querying")}</span>
+          </>
+        ) : (
+          <>
+            <Search className="w-4 h-4" />
+            <span>{t("btn_query_trains")}</span>
+          </>
+        )}
       </button>
     </section>
   );

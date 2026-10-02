@@ -1,6 +1,6 @@
 // client/src/components/TrainListCard.jsx
 import React from "react";
-import { Train, Zap, Square, CheckSquare, Clock } from "lucide-react";
+import { Train, Zap, Square, CheckSquare, Clock, Ticket, ChevronRight } from "lucide-react";
 import { useI18n } from "../context/I18nContext";
 
 export default function TrainListCard({
@@ -12,6 +12,8 @@ export default function TrainListCard({
   isRunning,
   onStartPolling,
   onStopPolling,
+  bookedTickets = [],
+  onOpenSessionBookings,
   isLocked = false,
 }) {
   const { t, formatTrainType } = useI18n();
@@ -122,7 +124,7 @@ export default function TrainListCard({
               <button
                 type="button"
                 onClick={onStartPolling}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-[0.99] text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-emerald-950/60 transition-all"
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 active:scale-[0.99] text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-emerald-950/60 transition-all cursor-pointer"
               >
                 <Zap className="w-4 h-4" />
                 <span>{t("btn_start_polling")}</span>
@@ -131,11 +133,59 @@ export default function TrainListCard({
               <button
                 type="button"
                 onClick={onStopPolling}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 active:scale-[0.99] text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-red-950/60 transition-all"
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 active:scale-[0.99] text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-red-950/60 transition-all cursor-pointer"
               >
                 <Square className="w-4 h-4 fill-white" />
                 <span>{t("btn_stop_polling")}</span>
               </button>
+            )}
+          </div>
+
+          {/* 本次 Session 訂票狀況卡片 (位於 Start/Stop 正下方) */}
+          <div
+            onClick={() => bookedTickets.length > 0 && onOpenSessionBookings && onOpenSessionBookings()}
+            className={`w-full rounded-xl p-3 border transition-all flex items-center justify-between select-none ${
+              bookedTickets.length > 0
+                ? "bg-emerald-950/40 border-emerald-500/50 hover:bg-emerald-950/60 shadow-lg shadow-emerald-950/30 cursor-pointer group active:scale-[0.99]"
+                : "bg-slate-950/40 border-slate-800/60 opacity-80 cursor-default"
+            }`}
+          >
+            {/* 左側：圖示 + 標題與張數摘要 */}
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-transform ${
+                  bookedTickets.length > 0
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-sm group-hover:scale-105"
+                    : "bg-slate-800/60 text-slate-500 border-slate-700/60"
+                }`}
+              >
+                <Ticket className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-200">
+                    {t("session_bookings_title")}
+                  </span>
+                  {bookedTickets.length > 0 && (
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {t("session_bookings_count", { n: bookedTickets.length })}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  {bookedTickets.length > 0
+                    ? `${bookedTickets.map((b) => `${b.train_no || ''}次`).join(", ")}`
+                    : t("session_bookings_empty")}
+                </span>
+              </div>
+            </div>
+
+            {/* 右側：檢視明細提示 */}
+            {bookedTickets.length > 0 && (
+              <div className="flex items-center gap-1 text-xs font-semibold text-emerald-400 group-hover:text-emerald-300 transition-colors shrink-0 pl-2">
+                <span>{t("session_bookings_view")}</span>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </div>
             )}
           </div>
         </div>

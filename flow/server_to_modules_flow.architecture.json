@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "服務端到各模組總覽架構流程圖 (Server to Modules Flow)",
+    "subtitle": "Web Client、HTTP Server、多任務狀態管理、Worker 調度與各子模組協同全景圖",
+    "output": "server_to_modules_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "full-overview",
+        "label": "系統全景調用流程",
+        "focus": ["web_client", "http_server", "state_mgr", "worker_module", "booking_engine_mod", "official_portal", "storage_mod"],
+        "note": "展示自前端操作、伺服器路由、狀態與背景調度至核心訂票引擎之主脈絡。"
+      },
+      {
+        "id": "query-and-cancel",
+        "label": "時刻表查詢與退票管理",
+        "focus": ["web_client", "http_server", "timetable_mod", "cancel_mod", "station_mod", "official_portal"],
+        "note": "獨立檢視時刻表爬取、車次過濾以及歷史訂票線上取消之輔助模組線路。"
+      },
+      {
+        "id": "engine-and-ocr",
+        "label": "核心引擎與 OCR 推論",
+        "focus": ["worker_module", "booking_engine_mod", "ocr_mod", "storage_mod", "official_portal"],
+        "note": "聚焦訂票引擎與神經網路圖形辨識模組對官方票務平台之互動流程。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "web_client",
+      "type": "frontend",
+      "label": "Web 前端介面",
+      "sublabel": "React Web / 行動面板",
+      "pos": [40, 260],
+      "size": [130, 60],
+      "tag": "Browser SPA"
+    },
+    {
+      "id": "http_server",
+      "type": "backend",
+      "label": "HTTP 伺服器",
+      "sublabel": "RESTful API / 靜態託管",
+      "pos": [250, 260],
+      "size": [130, 60],
+      "tag": "handlers.py"
+    },
+    {
+      "id": "state_mgr",
+      "type": "database",
+      "label": "狀態管理器",
+      "sublabel": "多任務持久化與鎖控管",
+      "pos": [250, 100],
+      "size": [130, 60],
+      "tag": "state.py"
+    },
+    {
+      "id": "worker_module",
+      "type": "backend",
+      "label": "背景排程 Worker",
+      "sublabel": "輪詢計時與批次佇列分發",
+      "pos": [250, 420],
+      "size": [130, 60],
+      "tag": "worker.py"
+    },
+    {
+      "id": "station_mod",
+      "type": "database",
+      "label": "車站代碼庫",
+      "sublabel": "站名與代碼雙向映射",
+      "pos": [510, 60],
+      "size": [130, 60],
+      "tag": "stations.py"
+    },
+    {
+      "id": "cancel_mod",
+      "type": "security",
+      "label": "退票與歷史模組",
+      "sublabel": "紀錄查詢與線上取消",
+      "pos": [510, 160],
+      "size": [130, 60],
+      "tag": "cancel_ticket.py"
+    },
+    {
+      "id": "timetable_mod",
+      "type": "backend",
+      "label": "時刻表查詢模組",
+      "sublabel": "爬蟲與 HTML 班次解析",
+      "pos": [510, 260],
+      "size": [130, 60],
+      "tag": "timetable.py"
+    },
+    {
+      "id": "booking_engine_mod",
+      "type": "backend",
+      "label": "核心訂票引擎",
+      "sublabel": "Selenium 驅動與欄位隔離",
+      "pos": [510, 420],
+      "size": [130, 60],
+      "tag": "booking_engine.py"
+    },
+    {
+      "id": "storage_mod",
+      "type": "database",
+      "label": "SQLite 統一資料庫層",
+      "sublabel": "autopilot.db (Tasks & Tickets)",
+      "pos": [770, 340],
+      "size": [130, 60],
+      "tag": "db.py / storage.py"
+    },
+    {
+      "id": "ocr_mod",
+      "type": "messagebus",
+      "label": "OCR 辨識模組",
+      "sublabel": "ddddocr 圖像字元推論",
+      "pos": [770, 440],
+      "size": [130, 60],
+      "tag": "ocr.py"
+    },
+    {
+      "id": "official_portal",
+      "type": "cloud",
+      "label": "官方票務平台",
+      "sublabel": "訂票 / 時刻表 / 退票系統",
+      "pos": [1030, 210],
+      "size": [140, 160],
+      "tag": "External Portal"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "用戶端互動層",
+      "wraps": ["web_client"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Web 服務與排程調度層",
+      "wraps": ["http_server", "state_mgr", "worker_module"]
+    },
+    {
+      "kind": "region",
+      "label": "核心業務與執行模組層",
+      "wraps": ["station_mod", "cancel_mod", "timetable_mod", "booking_engine_mod", "storage_mod", "ocr_mod"]
+    },
+    {
+      "kind": "region",
+      "label": "外部票務服務",
+      "wraps": ["official_portal"]
+    }
+  ],
+  "connections": [
+    { "id": "s1", "from": "web_client", "to": "http_server", "label": "HTTP API", "variant": "emphasis" },
+    { "id": "s2", "from": "http_server", "to": "state_mgr", "variant": "emphasis", "fromSide": "top", "toSide": "bottom" },
+    { "id": "s3", "from": "http_server", "to": "worker_module", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "s4", "from": "http_server", "to": "timetable_mod", "variant": "dashed" },
+    { "id": "s5", "from": "http_server", "to": "cancel_mod", "variant": "dashed" },
+    { "id": "s6", "from": "http_server", "to": "station_mod", "variant": "dashed" },
+    { "id": "s7", "from": "worker_module", "to": "booking_engine_mod", "label": "調度訂票", "variant": "emphasis" },
+    { "id": "s8", "from": "booking_engine_mod", "to": "ocr_mod", "variant": "security", "fromSide": "bottom", "toSide": "left" },
+    { "id": "s9", "from": "booking_engine_mod", "to": "storage_mod", "variant": "dashed", "fromSide": "top", "toSide": "left" },
+    { "id": "s10", "from": "timetable_mod", "to": "official_portal", "variant": "dashed", "fromSide": "right", "toSide": "left" },
+    { "id": "s11", "from": "cancel_mod", "to": "official_portal", "variant": "dashed", "fromSide": "right", "toSide": "left" },
+    { "id": "s12", "from": "booking_engine_mod", "to": "official_portal", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "服務分層與清晰職責架構",
+      "items": [
+        "Web 路由解耦：HTTP Server (handlers.py) 專注處理 REST 請求與靜態資源託管，不直接阻塞耗時訂票運算。",
+        "狀態中央管理：state.py 提供多任務獨立隔離空間，以執行緒互斥鎖維護狀態一致性，支援多埠並行與狀態持久化。",
+        "非同步 Worker 獨立執行：背景 Worker 線程完全自主驅動檢票循環，具備靈活的冷卻間隔與中斷感知機制。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "模組化高內聚設計",
+      "items": [
+        "核心訂票引擎 (BookingEngine)：封裝瀏覽器自動化生命週期、標準入口導航、多行程欄位隔離與回饋分析。",
+        "即時文字辨識 (OCR)：將深度學習驗證碼辨識封裝為獨立無狀態服務，可被核心訂票引擎即時調用。",
+        "時刻表與代碼映射：timetable.py 與 stations.py 承擔車次資訊檢索與格式標準化，前置保障訂票參數精確無誤。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "多重防護與數據閉環",
+      "items": [
+        "雙向資料同步：訂票成功時由 Worker 寫入 storage.py，取消退票時由 cancel_ticket.py 同步抹除或標記，始終維持最新票務現狀。",
+        "網路黑洞免疫：全域實施系統 DNS IPv4 直連解析配置，徹底消除各模組對外部官方系統通訊時的超時隱患。"
+      ]
+    }
+  ]
+}

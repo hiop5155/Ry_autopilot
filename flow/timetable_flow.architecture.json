@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "列車時刻表查詢流程 (Timetable Query Flow)",
+    "subtitle": "車站代碼轉換、官方時刻表動態爬取、HTML 表格結構解析與前端快取",
+    "output": "timetable_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "query-path",
+        "label": "主查詢與解析路徑",
+        "focus": ["req_input", "station_resolver", "crawler_engine", "portal_form_fill", "html_dom_extractor", "train_item_parser", "filter_and_cache"],
+        "note": "從接收查詢條件、官方網站爬取到結構化列車陣列生成之端到端流程。"
+      },
+      {
+        "id": "resource-lifecycle",
+        "label": "爬蟲與資源回收",
+        "focus": ["crawler_engine", "portal_form_fill", "browser_cleanup"],
+        "note": "無頭瀏覽器實例生命週期與安全關閉回收機制。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "req_input",
+      "type": "frontend",
+      "label": "接收查詢條件",
+      "sublabel": "乘車日期 / 起訖站 / 時段",
+      "pos": [40, 260],
+      "size": [130, 60],
+      "tag": "API Request"
+    },
+    {
+      "id": "station_resolver",
+      "type": "backend",
+      "label": "車站代碼轉換",
+      "sublabel": "轉為全名代碼 (如 1000-臺北)",
+      "pos": [250, 260],
+      "size": [130, 60],
+      "tag": "stations.py"
+    },
+    {
+      "id": "crawler_engine",
+      "type": "backend",
+      "label": "啟動爬蟲實例",
+      "sublabel": "Headless Chrome + IPv4 直連",
+      "pos": [460, 260],
+      "size": [130, 60],
+      "tag": "WebDriver"
+    },
+    {
+      "id": "portal_form_fill",
+      "type": "frontend",
+      "label": "官方表單填寫",
+      "sublabel": "輸入站代碼、日期、時段送出",
+      "pos": [670, 260],
+      "size": [130, 60],
+      "tag": "時刻表入口"
+    },
+    {
+      "id": "html_dom_extractor",
+      "type": "messagebus",
+      "label": "DOM 表格擷取",
+      "sublabel": "BeautifulSoup 解析 HTML 結果",
+      "pos": [880, 260],
+      "size": [130, 60],
+      "tag": "HTML Parsing"
+    },
+    {
+      "id": "train_item_parser",
+      "type": "backend",
+      "label": "列車資料結構化",
+      "sublabel": "車次 / 車種 / 發抵時間 / 歷時",
+      "pos": [1100, 260],
+      "size": [130, 60],
+      "tag": "正則清洗"
+    },
+    {
+      "id": "filter_and_cache",
+      "type": "database",
+      "label": "時段過濾與快取",
+      "sublabel": "存入狀態並交付前端呈現",
+      "pos": [1310, 260],
+      "size": [130, 60],
+      "tag": "JSON Response"
+    },
+    {
+      "id": "browser_cleanup",
+      "type": "security",
+      "label": "爬蟲資源回收",
+      "sublabel": "主動 driver.quit() 釋放程序",
+      "pos": [670, 410],
+      "size": [130, 60],
+      "tag": "釋放記憶體"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "參數輸入與代碼解析層",
+      "wraps": ["req_input", "station_resolver"]
+    },
+    {
+      "kind": "security-group",
+      "label": "動態爬蟲與互動層",
+      "wraps": ["crawler_engine", "portal_form_fill", "browser_cleanup"]
+    },
+    {
+      "kind": "region",
+      "label": "數據剖析與交付層",
+      "wraps": ["html_dom_extractor", "train_item_parser", "filter_and_cache"]
+    }
+  ],
+  "connections": [
+    { "id": "t1", "from": "req_input", "to": "station_resolver", "variant": "emphasis" },
+    { "id": "t2", "from": "station_resolver", "to": "crawler_engine", "variant": "emphasis" },
+    { "id": "t3", "from": "crawler_engine", "to": "portal_form_fill", "variant": "emphasis" },
+    { "id": "t4", "from": "portal_form_fill", "to": "html_dom_extractor", "label": "取得原始 HTML", "variant": "emphasis" },
+    { "id": "t5", "from": "html_dom_extractor", "to": "train_item_parser", "variant": "emphasis" },
+    { "id": "t6", "from": "train_item_parser", "to": "filter_and_cache", "variant": "emphasis" },
+    { "id": "t7", "from": "portal_form_fill", "to": "browser_cleanup", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "高相容車站映射",
+      "items": [
+        "中文名與 4 位數代碼雙向互換：支援如「臺北」或「1000」輸入，自動補全官方標準規格「1000-臺北」。",
+        "常用車站快速字典與全台車站快取相容，避免使用者因站名格式錯誤被官方退件。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "精確表格資訊萃取",
+      "items": [
+        "正則過濾車次車種：從雜亂 HTML 中抽離自強(3000)、太魯閣、普悠瑪、莒光等車型標記與優惠標籤。",
+        "出發/抵達時段彈性支援：可指定「查詢出發時間」或「查詢抵達時間」，自適應填寫對應表單單選鈕。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "輕量無殘留運行",
+      "items": [
+        "專屬獨立 Headless 瀏覽器實例：查詢時刻表與撿票輪詢使用各自獨立 Chrome 空間，互不干擾。",
+        "完成即毀：每次抓取完成後均透過 finally 區塊確保關閉瀏覽器程序，保證系統長期運行不累積殘餘進程。"
+      ]
+    }
+  ]
+}

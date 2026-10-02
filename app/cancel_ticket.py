@@ -97,6 +97,15 @@ def cancel_ticket_online(
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
+    try:
+        import socket
+        addr_info = socket.getaddrinfo("tip.railway.gov.tw", None, socket.AF_INET)
+        if addr_info:
+            ipv4 = addr_info[0][4][0]
+            options.add_argument(f"--host-resolver-rules=MAP tip.railway.gov.tw {ipv4}")
+    except Exception:
+        pass
+
     driver = None
     try:
         driver = webdriver.Chrome(options=options)
@@ -117,14 +126,15 @@ def cancel_ticket_online(
 
         # 2. 等待跳轉至 queryHistory
         WebDriverWait(driver, 15).until(
-            lambda d: "queryHistory" in d.current_url or "查無" in d.page_source or "complete" in d.current_url
+            lambda d: "queryHistory" in d.current_url or "查無訂票紀錄" in d.page_source or "查無此訂票" in d.page_source or "complete" in d.current_url
         )
 
         page_source = driver.page_source
-        if "查無訂票紀錄" in page_source or "查無" in page_source:
+        if "查無訂票紀錄" in page_source or "查無此訂票" in page_source:
             return {
                 "success": True,
                 "already_cancelled": True,
+                "reason_code": "NOT_FOUND",
                 "message": "官方網站顯示查無此訂票紀錄 (可能已取消或已失效)"
             }
 
@@ -133,6 +143,7 @@ def cancel_ticket_online(
             return {
                 "success": True,
                 "already_cancelled": True,
+                "reason_code": "ALREADY_CANCELLED",
                 "message": "該訂票在官方網站已處於已取消狀態"
             }
 
@@ -141,6 +152,7 @@ def cancel_ticket_online(
         if not cancel_buttons:
             return {
                 "success": False,
+                "reason_code": "NO_CANCEL_BTN",
                 "message": "查無取消訂票按鈕 (可能已付款或非可取消狀態)"
             }
 
@@ -157,6 +169,7 @@ def cancel_ticket_online(
         if not danger_buttons:
             return {
                 "success": False,
+                "reason_code": "CONFIRM_BTN_NOT_FOUND",
                 "message": "未能定位到取消確認視窗中的確認按鈕"
             }
 
@@ -170,17 +183,20 @@ def cancel_ticket_online(
         if "已取消" in result_text or "訂單已取消" in result_text or "訂單代碼已成功取消" in result_text:
             return {
                 "success": True,
+                "reason_code": "CANCEL_SUCCESS",
                 "message": "官方網站已成功取消訂票"
             }
         else:
             return {
                 "success": False,
+                "reason_code": "UNRECOGNIZED_COMPLETE",
                 "message": f"跳轉至完成頁但未識別到取消成功標記: {result_text[:150]}"
             }
 
     except Exception as e:
         return {
             "success": False,
+            "reason_code": "EXCEPTION",
             "message": f"線上退票過程發生異常: {str(e)}"
         }
     finally:
@@ -201,7 +217,12 @@ def handle_ticket_cancellation(booking_code: str, pid: str = "") -> Dict[str, An
     """
     clean_code = str(booking_code).strip()
     if not clean_code:
-        return {"success": False, "msg": "未指定訂票代碼 (booking_code)"}
+        return {
+            "success": False,
+            "reason_code": "MISSING_CODE",
+            "reason": "未指定訂票代碼",
+            "msg": "未指定訂票代碼 (booking_code)"
+        }
 
     tickets = get_saved_tickets()
     target_ticket = None
@@ -212,7 +233,12 @@ def handle_ticket_cancellation(booking_code: str, pid: str = "") -> Dict[str, An
                 break
 
     if not target_ticket:
-        return {"success": False, "msg": f"在歷史紀錄中未找到訂票代碼 {clean_code} 的車票"}
+        return {
+            "success": False,
+            "reason_code": "RECORD_NOT_FOUND",
+            "reason": f"在歷史紀錄中未找到訂票代碼 {clean_code} 的車票",
+            "msg": f"在歷史紀錄中未找到訂票代碼 {clean_code} 的車票"
+        }
 
     ticket_pid = target_ticket.get("pid", pid).strip()
     pay_deadline = target_ticket.get("pay_deadline", "")
@@ -229,6 +255,7 @@ def handle_ticket_cancellation(booking_code: str, pid: str = "") -> Dict[str, An
                 "success": True,
                 "is_expired": True,
                 "booking_code": clean_code,
+                "reason_code": "EXPIRED_DELETED",
                 "msg": f"訂票 {clean_code} 繳費期限已逾期 ({pay_deadline})，已直接自本機紀錄刪除。"
             }
         else:
@@ -236,6 +263,8 @@ def handle_ticket_cancellation(booking_code: str, pid: str = "") -> Dict[str, An
                 "success": False,
                 "is_expired": True,
                 "booking_code": clean_code,
+                "reason_code": "DELETE_LOCAL_FAILED",
+                "reason": "刪除本機紀錄失敗",
                 "msg": f"訂票 {clean_code} 刪除本機紀錄失敗。"
             }
     else:
@@ -247,6 +276,7 @@ def handle_ticket_cancellation(booking_code: str, pid: str = "") -> Dict[str, An
                 "success": True,
                 "is_expired": False,
                 "booking_code": clean_code,
+                "reason_code": cancel_res.get("reason_code", "CANCEL_SUCCESS"),
                 "msg": f"官方網站已成功取消訂票 {clean_code}，並已自本機紀錄同步移除。"
             }
         else:
@@ -254,5 +284,7 @@ def handle_ticket_cancellation(booking_code: str, pid: str = "") -> Dict[str, An
                 "success": False,
                 "is_expired": False,
                 "booking_code": clean_code,
+                "reason_code": cancel_res.get("reason_code", "CANCEL_FAILED"),
+                "reason": cancel_res.get("message", "未知原因"),
                 "msg": f"官方網站線上退票失敗: {cancel_res.get('message', '未知原因')}，為保護資料完整，未刪除本機紀錄。"
             }

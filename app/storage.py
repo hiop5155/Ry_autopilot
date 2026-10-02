@@ -2,31 +2,35 @@
 # -*- coding: utf-8 -*-
 """
 資料持久化儲存模組 (app/storage.py)
-負責將訂票成功的PID號、電腦取票代號、車次、座位與繳費期限
-同時追加寫入 successful_tickets.txt 與 successful_tickets.json。
+負責將訂票成功的 PID、電腦取票代號、車次、座位與繳費期限存入 SQLite 資料庫 (autopilot.db)，
+並輔助追加寫入 successful_tickets.txt 供本機純文字查閱。
 """
 
 import sys
 import os
-import json
 from datetime import datetime
 from typing import Dict, Any, List
+from . import db
 
-def get_storage_paths():
-    if getattr(sys, 'frozen', False):
-        root_dir = os.getcwd()
-    else:
-        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    txt_file = os.path.join(root_dir, "successful_tickets.txt")
-    json_file = os.path.join(root_dir, "successful_tickets.json")
-    return txt_file, json_file
+
+def get_txt_path() -> str:
+    """取得人類可讀之 successful_tickets.txt 路徑 (固定於 ~/.Ry_autopilot/ 下)"""
+    data_dir = db.get_app_data_dir()
+    return os.path.join(data_dir, "successful_tickets.txt")
+
 
 def save_ticket(info: Dict[str, Any]) -> bool:
-    """將訂票結果永久寫入檔案"""
-    txt_file, json_file = get_storage_paths()
+    """將訂票結果永久寫入 SQLite 資料庫與文字日誌檔"""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. 寫入人類易讀的 successful_tickets.txt (追加模式)
+    # 1. 寫入 SQLite tickets 表
+    try:
+        db.save_ticket(info)
+    except Exception as e:
+        print(f"[警告] 寫入 SQLite 資料庫失敗: {e}")
+
+    # 2. 追加寫入人類易讀的 successful_tickets.txt
+    txt_file = get_txt_path()
     banner = "=" * 60
     entry_txt = (
         f"\n{banner}\n"
@@ -45,69 +49,34 @@ def save_ticket(info: Dict[str, Any]) -> bool:
     except Exception as e:
         print(f"[警告] 寫入 {txt_file} 失敗: {e}")
 
-    # 2. 寫入結構化 JSON 檔
-    try:
-        all_records = []
-        if os.path.exists(json_file):
-            try:
-                with open(json_file, "r", encoding="utf-8") as jf:
-                    all_records = json.load(jf)
-            except Exception:
-                all_records = []
-        all_records.append(info)
-        with open(json_file, "w", encoding="utf-8") as jf:
-            json.dump(all_records, jf, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        print(f"[警告] 寫入 {json_file} 失敗: {e}")
-        return False
+    return True
 
-def get_saved_tickets() -> List[Dict[str, Any]]:
-    """讀取歷史成功訂票紀錄"""
-    _, json_file = get_storage_paths()
-    if os.path.exists(json_file):
-        try:
-            with open(json_file, "r", encoding="utf-8") as jf:
-                return json.load(jf)
-        except Exception:
-            return []
-    return []
+
+def get_saved_tickets(port: int = None) -> List[Dict[str, Any]]:
+    """自 SQLite 讀取所有歷史成功訂票紀錄 (依時間倒序排列)"""
+    try:
+        return db.get_all_tickets(port)
+    except Exception as e:
+        print(f"[警告] 讀取 SQLite 車票失敗: {e}")
+        return []
+
 
 def delete_saved_ticket(booking_code: str, pid: str = "") -> bool:
     """
-    從 successful_tickets.json 與 successful_tickets.txt 中刪除指定訂票紀錄。
-    若成功刪除回傳 True，未找到或失敗回傳 False。
+    從 SQLite tickets 表中刪除指定訂票紀錄 (支援退票與過期刪除)。
+    一筆 SQL 刪除，本次 Session 明細與歷史紀錄瞬間同步更新！
     """
-    txt_file, json_file = get_storage_paths()
     code_clean = str(booking_code).strip()
     if not code_clean:
         return False
 
-    records = get_saved_tickets()
-    remaining = []
-    found = False
+    # 1. 自 SQLite 刪除
+    ok = db.delete_ticket(code_clean, pid)
 
-    for r in records:
-        r_code = str(r.get("booking_code", "")).strip()
-        r_pid = str(r.get("pid", "")).strip()
-        if r_code == code_clean and (not pid or r_pid == str(pid).strip()):
-            found = True
-        else:
-            remaining.append(r)
-
-    if not found:
-        return False
-
-    # 1. 覆寫 JSON
+    # 2. 重新產生 successful_tickets.txt
     try:
-        with open(json_file, "w", encoding="utf-8") as jf:
-            json.dump(remaining, jf, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"[警告] 更新 {json_file} 失敗: {e}")
-        return False
-
-    # 2. 重新產生 TXT
-    try:
+        txt_file = get_txt_path()
+        remaining = db.get_all_tickets()
         banner = "=" * 60
         txt_content = ""
         for r in remaining:
@@ -128,4 +97,4 @@ def delete_saved_ticket(booking_code: str, pid: str = "") -> bool:
     except Exception as e:
         print(f"[警告] 更新 {txt_file} 失敗: {e}")
 
-    return True
+    return ok

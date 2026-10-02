@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統架構與各模組處理流程導覽</title>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-card: rgba(18, 26, 43, 0.85);
+            --border-color: rgba(56, 189, 248, 0.2);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-cyan: #38bdf8;
+            --accent-emerald: #34d399;
+            --accent-purple: #c084fc;
+            --accent-amber: #fbbf24;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px 20px;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(192, 132, 252, 0.12) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+            max-width: 720px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ffffff;
+        }
+
+        .section-title::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 20px;
+            background: var(--accent-cyan);
+            border-radius: 2px;
+        }
+
+        .grid-featured {
+            margin-bottom: 40px;
+        }
+
+        .card-featured {
+            background: var(--bg-card);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 16px;
+            padding: 28px;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-featured::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+        }
+
+        .card-featured:hover {
+            transform: translateY(-3px);
+            border-color: rgba(56, 189, 248, 0.7);
+            box-shadow: 0 12px 30px -10px rgba(56, 189, 248, 0.25);
+        }
+
+        .grid-modules {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 24px;
+            margin-bottom: 48px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.25s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(56, 189, 248, 0.5);
+            box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 14px;
+        }
+
+        .card-tag {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .tag-core {
+            background: rgba(56, 189, 248, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .tag-worker {
+            background: rgba(52, 211, 153, 0.15);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+
+        .tag-aux {
+            background: rgba(192, 132, 252, 0.15);
+            color: var(--accent-purple);
+            border: 1px solid rgba(192, 132, 252, 0.3);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .feature-list li {
+            font-size: 13px;
+            color: #cbd5e1;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .feature-list li::before {
+            content: "•";
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        .btn-view {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 16px;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent-cyan);
+            text-decoration: none;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-view:hover {
+            background: var(--accent-cyan);
+            color: #0f172a;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        }
+
+        .btn-featured {
+            background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+            color: #04101e;
+            border: none;
+            font-weight: 700;
+            padding: 12px 20px;
+            font-size: 15px;
+        }
+
+        .btn-featured:hover {
+            background: linear-gradient(135deg, #7dd3fc, var(--accent-cyan));
+            color: #000000;
+            box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+        }
+
+        footer {
+            text-align: center;
+            padding-top: 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="badge">Archify Visual Architecture</div>
+            <h1>系統架構與各模組處理流程導覽</h1>
+            <p class="subtitle">呈現 Web Server 至各功能模組呼叫關係、背景排程撿票機制與最新訂票引擎安全防護流程圖。</p>
+        </header>
+
+        <!-- 總覽流程 (Server to Modules) -->
+        <div class="section-title">全景系統架構流程</div>
+        <div class="grid-featured">
+            <div class="card-featured">
+                <div class="card-header">
+                    <div>
+                        <h2>服務端到各模組總覽架構流程圖 (Server to Modules Flow)</h2>
+                        <p style="margin-top: 6px; margin-bottom: 12px;">展示自 Web Client、HTTP Server (handlers.py)、狀態管理器
+                            (state.py)、背景 Worker 到核心訂票引擎、時刻表、OCR 與外部票務平台之完整協同調用架構。</p>
+                    </div>
+                    <span class="card-tag tag-core">全景架構</span>
+                </div>
+                <ul class="feature-list" style="margin-bottom: 20px;">
+                    <li>Web 路由解耦與多任務中央狀態互斥鎖管理機制</li>
+                    <li>非同步背景 Worker 完全自主驅動之輪詢循環與冷卻中斷感知</li>
+                    <li>核心訂票引擎、驗證碼 OCR 與本地票券儲存之數據閉環設計</li>
+                </ul>
+                <a href="server_to_modules_flow.html" class="btn-view btn-featured" target="_blank">
+                    開啟全景架構流程圖 (Interactive Diagram) ➔
+                </a>
+            </div>
+        </div>
+
+        <!-- 各模組詳細流程 -->
+        <div class="section-title">各子模組詳細處理流程</div>
+        <div class="grid-modules">
+            <!-- 1. 訂票引擎 -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2>核心訂票引擎流程</h2>
+                        <span class="card-tag tag-core">核心邏輯</span>
+                    </div>
+                    <p>Booking Engine 實例自初始化、防反爬、多行程隔離防護到多路徑狀態決策之完整流程。</p>
+                    <ul class="feature-list">
+                        <li><strong>多行程隔離防護</strong>：強制禁用 TRIP2/TRIP3 欄位，杜絕參數污染</li>
+                        <li><strong>標準入口切換</strong>：正式標準入口對齊，保證 Session 上下文完整</li>
+                        <li><strong>智能回饋決策</strong>：精準辨析客滿無票、成功訂票、次級驗證碼與自癒重整</li>
+                    </ul>
+                </div>
+                <a href="booking_engine_flow.html" class="btn-view" target="_blank">檢視模組流程圖 ➔</a>
+            </div>
+
+            <!-- 2. Worker 輪詢排程 -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2>背景輪詢排程調度</h2>
+                        <span class="card-tag tag-worker">排程調度</span>
+                    </div>
+                    <p>Worker 線程之任務初始化、批次分組、循環倒數與目標張數滿額自動終止機制。</p>
+                    <ul class="feature-list">
+                        <li><strong>整筆與拆單模式</strong>：支援多志願序整筆請求與單班獨立拆單</li>
+                        <li><strong>滿額動態出列</strong>：車次達標即刻移出待訂清單，防範重複超額訂購</li>
+                        <li><strong>狀態即時對齊</strong>：安全鎖同步輪詢次數、進度與持久化檔案寫入</li>
+                    </ul>
+                </div>
+                <a href="worker_flow.html" class="btn-view" target="_blank">檢視模組流程圖 ➔</a>
+            </div>
+
+            <!-- 3. 時刻表查詢 -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2>列車時刻表查詢流程</h2>
+                        <span class="card-tag tag-aux">查詢檢索</span>
+                    </div>
+                    <p>車站代碼解析、無頭爬蟲動態查詢、HTML 表格班次解析與前端快取數據流。</p>
+                    <ul class="feature-list">
+                        <li><strong>車站代碼雙向對照</strong>：全台站名與 4 位數官方代碼快速轉換</li>
+                        <li><strong>班次結構化解析</strong>：BeautifulSoup 萃取車種、車次號、發抵時間</li>
+                        <li><strong>獨立輕量生命週期</strong>：專屬獨立爬蟲實例，查詢完畢即刻釋放資源</li>
+                    </ul>
+                </div>
+                <a href="timetable_flow.html" class="btn-view" target="_blank">檢視模組流程圖 ➔</a>
+            </div>
+
+            <!-- 4. OCR 辨識 -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2>驗證碼 OCR 辨識流程</h2>
+                        <span class="card-tag tag-aux">神經網路</span>
+                    </div>
+                    <p>圖形驗證碼元素定位、內存直接二進制截圖、圖像預處理與深度學習字元預測。</p>
+                    <ul class="feature-list">
+                        <li><strong>零磁碟內存截取</strong>：透過 screenshot_as_png 直接於記憶體解碼推論</li>
+                        <li><strong>ddddocr 模型推論</strong>：快速預測扭曲字形與抗干擾線條</li>
+                        <li><strong>容錯自動換圖</strong>：辨識未通過或微誤時，主動點擊換圖重試</li>
+                    </ul>
+                </div>
+                <a href="ocr_flow.html" class="btn-view" target="_blank">檢視模組流程圖 ➔</a>
+            </div>
+
+            <!-- 5. 線上退票與歷史管理 -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2>線上退票與歷史流程</h2>
+                        <span class="card-tag tag-aux">退票同步</span>
+                    </div>
+                    <p>歷史訂票紀錄查詢、跨日 24:00 繳費期限檢核、彈窗確認退票與本地資料庫同步。</p>
+                    <ul class="feature-list">
+                        <li><strong>跨日繳費期限解析</strong>：精確處理 24:00 等特有格式，防範誤判過期</li>
+                        <li><strong>雙重防呆狀態校驗</strong>：自動對齊官方已取消狀態，避免無效重複操作</li>
+                        <li><strong>本地票券儲存同步</strong>：退票完成即刻更新 SQLite tickets 紀錄</li>
+                    </ul>
+                </div>
+                <a href="cancel_ticket_flow.html" class="btn-view" target="_blank">檢視模組流程圖 ➔</a>
+            </div>
+
+            <!-- 6. 單元測試與品質保證體系 -->
+            <div class="card">
+                <div>
+                    <div class="card-header">
+                        <h2>單元測試與離線防護</h2>
+                        <span class="card-tag tag-core">品質保證</span>
+                    </div>
+                    <p>涵蓋純邏輯驗證、HTML 離線 Fixtures 結果解析、SQLite 資料庫隔離與全量測試流水線。</p>
+                    <ul class="feature-list">
+                        <li><strong>純邏輯與日期解析</strong>：身分證校驗演算法 + 24:00 換日跨日精確性驗證</li>
+                        <li><strong>HTML 離線 Fixtures</strong>：脫離瀏覽器與網路，秒級防護官網改版與回歸錯誤</li>
+                        <li><strong>SQLite 隔離環境</strong>：採用獨立暫存 DB 驗證車票原子性 CRUD 與日誌佇列截斷</li>
+                        <li><strong>一鍵全量/模組測試</strong>：支援 <code>./run_tests.sh [1|2|3]</code>，毫秒級完成全部測試</li>
+                    </ul>
+                </div>
+                <a href="../TESTING.md" class="btn-view" target="_blank">檢視測試指引文檔 ➔</a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

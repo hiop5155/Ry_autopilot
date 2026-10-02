@@ -31,7 +31,7 @@ class CaptchaOCR:
     @staticmethod
     def _to_bytes(img: Image.Image) -> bytes:
         buf = io.BytesIO()
-        img.save(buf, format="JPEG")
+        img.convert("RGB").save(buf, format="PNG")
         return buf.getvalue()
 
     @staticmethod

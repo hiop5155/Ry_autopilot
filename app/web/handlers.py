@@ -19,6 +19,7 @@ from ..timetable import query_train_timetable
 from ..storage import get_saved_tickets
 from ..cancel_ticket import handle_ticket_cancellation
 from . import state
+from .. import db
 from .worker import polling_worker
 
 
@@ -92,12 +93,7 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 cfg["common_stations"] = get_common_stations()
                 cfg["all_stations"] = get_all_stations()
 
-                with lock:
-                    active_state = dict(curr_state)
-                if not active_state.get("is_running"):
-                    ext = state.read_external_status_if_alive()
-                    if ext:
-                        active_state = ext
+                active_state = dict(curr_state)
                 if active_state.get("is_running") or active_state.get("pid"):
                     for k in ["pid", "ride_date", "start_station", "end_station", "start_time", "end_time", "ticket_qty", "split_mode"]:
                         if active_state.get(k):
@@ -108,13 +104,7 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 self._send_json(cfg)
 
             elif url.path == "/api/status":
-                with lock:
-                    active_state = dict(curr_state)
-                if not active_state.get("is_running") and not task_id:
-                    ext = state.read_external_status_if_alive()
-                    if ext:
-                        active_state = ext
-                self._send_json(active_state)
+                self._send_json(dict(curr_state))
 
             elif url.path == "/api/tickets":
                 self._send_json(get_saved_tickets())
@@ -193,20 +183,14 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
 
                 with lock:
                     curr_state["cached_trains"] = trains
-                    state.save_runtime_status()
+                    db.upsert_task(state.get_server_port(), curr_state)
                 self._send_json({"success": True, "trains": trains})
 
             # 啟動自動搶票
             elif url.path == "/api/start":
-                with lock:
-                    if curr_state["is_running"]:
-                        self._send_json({"success": False, "msg": f"任務 [{curr_state.get('name')}] 正在撿票監控中，請勿重複啟動"})
-                        return
-                    curr_state["is_running"] = True
-                    curr_state["round_count"] = 0
-                    curr_state["ticket_result"] = None
-                    curr_state["booked_tickets"] = []
-                    curr_state["last_log"] = "準備啟動撿票監控..."
+                if state.is_task_running(task_id):
+                    self._send_json({"success": False, "msg": f"任務 [{curr_state.get('name')}] 正在撿票監控中，請勿重複啟動"})
+                    return
 
                 pid = params.get("pid", "")
                 ride_date = params.get("ride_date", "").replace("-", "/").strip()
@@ -220,6 +204,11 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                 cached_trains = params.get("cached_trains", [])
 
                 with lock:
+                    curr_state["is_running"] = True
+                    curr_state["round_count"] = 0
+                    curr_state["ticket_result"] = None
+                    curr_state["booked_tickets"] = []
+                    curr_state["last_log"] = "準備啟動撿票監控..."
                     curr_state["pid"] = pid
                     curr_state["ride_date"] = ride_date
                     curr_state["start_station"] = start
@@ -238,7 +227,7 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                     if cached_trains:
                         curr_state["cached_trains"] = cached_trains
                     curr_state["logs"] = [f"準備啟動撿票監控 (PID: {pid}, {get_station_name(start)} ➔ {get_station_name(end)})..."]
-                    state.save_runtime_status()
+                    db.upsert_task(state.get_server_port(), curr_state)
 
                 # 存檔最新全域設定
                 save_config({
@@ -247,7 +236,8 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                     "ticket_qty": qty, "split_mode": split_mode, "preferred_trains": target_trains
                 })
 
-                # 為該 task_id 建立獨立背景工作線程
+                # 初始化任務停止訊號並啟動背景線程
+                state.start_task(task_id)
                 poll_thread = threading.Thread(
                     target=polling_worker,
                     args=(pid, ride_date, start, end, start_t, end_t, target_trains, qty, split_mode, 10.0, 3.0, task_id),
@@ -260,8 +250,7 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
 
             # 停止自動搶票
             elif url.path == "/api/stop":
-                with lock:
-                    curr_state["is_running"] = False
+                state.stop_task(task_id)
                 state.add_log("已收到停止指示，正在釋放背景程序...", task_id=task_id)
                 self._send_json({"success": True, "msg": f"任務 [{curr_state.get('name')}] 已停止監控", "task_id": task_id})
 
@@ -274,6 +263,8 @@ class AppRequestHandler(SimpleHTTPRequestHandler):
                     return
 
                 res = handle_ticket_cancellation(booking_code, pid)
+                if res.get("success"):
+                    state.remove_booked_ticket(booking_code, pid)
                 self._send_json(res)
 
             else:

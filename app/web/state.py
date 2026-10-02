@@ -2,99 +2,61 @@
 # -*- coding: utf-8 -*-
 """
 Web 執行時狀態管理模組 (app/web/state.py)
-支援多任務 (Multi-Task Sessions) 並行撿票管理、日誌緩存、持久化至 JSON 以及跨行程存活狀態偵測。
+採用 SQLite (app/db.py, autopilot.db) 作為唯一真相來源 (SSOT)。
+支援多 Port 隔離、多任務配置、獨立 Session 車票管理與安全日誌維護，
 """
 
 import sys
 import os
-import json
 import time
 import threading
-import uuid
 from typing import Dict, Any, List, Optional
+from .. import db
 
-_SERVER_PORT: int = 0
-STATUS_FILE_LOCAL: str = ""
-STATUS_FILE_TMP: str = ""
-
+_SERVER_PORT: int = 8080
 _LOCK = threading.RLock()
 _DEBUG_MODE: bool = False
 
-def _create_default_task_payload(task_id: str, name: str = "任務 1") -> Dict[str, Any]:
-    return {
-        "id": task_id,
-        "name": name,
-        "server_pid": os.getpid(),
-        "is_running": False,
-        "round_count": 0,
-        "last_log": "系統待命中，請設定條件並查詢車次",
-        "logs": ["系統待命中，請設定條件並查詢車次"],
-        "target_desc": "",
-        "ticket_result": None,
-        "countdown": 0,
-        "last_update": time.time(),
-        "pid": "",
-        "ride_date": "",
-        "start_station": "1000",
-        "start_station_name": "臺北",
-        "end_station": "1020",
-        "end_station_name": "板橋",
-        "start_time": "10:00",
-        "end_time": "18:00",
-        "ticket_qty": 1,
-        "split_mode": "single",
-        "booked_count": 0,
-        "target_count": 1,
-        "target_trains": [],
-        "total_target_trains": [],
-        "booked_tickets": [],
-        "cached_trains": []
-    }
-
-# 多任務字典: task_id -> task_state
-_TASKS: Dict[str, Dict[str, Any]] = {
-    "default": _create_default_task_payload("default", "任務 1")
-}
-
-# 記錄各任務專屬的背景線程
+# 記錄各任務專屬的背景監控線程 (純記憶體生命週期管理)
 _TASK_THREADS: Dict[str, threading.Thread] = {}
-
-
-def load_saved_status():
-    """啟動時嘗試從持久化狀態檔載入先前的任務與設定，直接保留上次的設定結果"""
-    global _TASKS
-    for path in [STATUS_FILE_TMP, STATUS_FILE_LOCAL]:
-        if path and os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    saved_tasks = data.get("tasks")
-                    if saved_tasks and isinstance(saved_tasks, dict):
-                        with _LOCK:
-                            _TASKS = saved_tasks
-                            # 重新啟動時更新 server_pid，並確保狀態重置為待機
-                            for t in _TASKS.values():
-                                t["server_pid"] = os.getpid()
-                                t["is_running"] = False
-                                t["countdown"] = 0
-                        return True
-            except Exception:
-                pass
-    return False
+# 記錄各任務專屬的停止訊號事件 (供 worker 零延遲響應)
+_STOP_EVENTS: Dict[str, threading.Event] = {}
 
 
 def init_status_paths(port: int):
-    """根據實際啟用的 port 初始化狀態持久化路徑，並載入先前留存的設定"""
-    global STATUS_FILE_LOCAL, STATUS_FILE_TMP, _SERVER_PORT
+    """
+    依據伺服器啟用的 port 初始化資料庫與狀態。
+    自動建表並將舊有 JSON 狀態無損遷移至 SQLite，重啟時將所有任務標記為待機狀態。
+    """
+    global _SERVER_PORT
     _SERVER_PORT = port
-    if getattr(sys, 'frozen', False):
-        STATUS_FILE_LOCAL = os.path.abspath(os.path.join(os.getcwd(), f"runtime_status_{port}.json"))
-    else:
-        STATUS_FILE_LOCAL = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", f"runtime_status_{port}.json")
-        )
-    STATUS_FILE_TMP = f"/tmp/Ry_autopilot_status_{port}.json"
-    load_saved_status()
+    with _LOCK:
+        db.init_db()
+        tasks = db.get_all_tasks(port)
+        if not tasks:
+            db.create_task(port, "任務 1")
+            tasks = db.get_all_tasks(port)
+
+        # 伺服器啟動時將所有任務的 is_running 歸 0，保證待命安全
+        for t in tasks:
+            if t.get("is_running"):
+                t["is_running"] = False
+                t["countdown"] = 0
+                db.upsert_task(port, t)
+
+
+def cleanup_status_files():
+    """伺服器關閉時安全標記所有任務為待機狀態 (is_running = 0)"""
+    with _LOCK:
+        try:
+            tasks = db.get_all_tasks(_SERVER_PORT)
+            for t in tasks:
+                if t.get("is_running"):
+                    t["is_running"] = False
+                    t["countdown"] = 0
+                    db.upsert_task(_SERVER_PORT, t)
+        except Exception:
+            pass
 
 
 def set_debug_mode(debug: bool):
@@ -110,80 +72,85 @@ def get_lock() -> threading.RLock:
     return _LOCK
 
 
+def get_server_port() -> int:
+    return _SERVER_PORT
+
+
 def get_task_state(task_id: Optional[str] = None) -> Dict[str, Any]:
-    """取得指定任務狀態，若未指定或不存在則回傳第一個/預設任務"""
+    """
+    取得指定任務狀態與配置。
+    自動自 SQLite tickets 表動態加載當前 Session 所訂得的車票，保證資料絕對一致。
+    """
     with _LOCK:
-        if task_id and task_id in _TASKS:
-            return _TASKS[task_id]
-        if "default" in _TASKS:
-            return _TASKS["default"]
-        # 若無 default 則回傳第一個任務
-        if _TASKS:
-            first_key = next(iter(_TASKS))
-            return _TASKS[first_key]
-        # 若完全為空則建立一個
-        _TASKS["default"] = _create_default_task_payload("default", "任務 1")
-        return _TASKS["default"]
+        tasks = db.get_all_tasks(_SERVER_PORT)
+        target = None
+        if task_id:
+            for t in tasks:
+                if t.get("task_id") == task_id or t.get("id") == task_id:
+                    target = t
+                    break
+        if not target and tasks:
+            target = tasks[0]
+        if not target:
+            target = db.create_task(_SERVER_PORT, "任務 1")
+
+        # 動態載入當前任務在當前 Session 的車票
+        session_id = target.get("session_id", 1)
+        tid = target.get("task_id") or target.get("id")
+        session_tickets = db.get_session_tickets(_SERVER_PORT, tid, session_id)
+        
+        target["booked_tickets"] = session_tickets
+        target["booked_count"] = len(session_tickets)
+        if session_tickets:
+            target["ticket_result"] = session_tickets[-1]
+            
+        target["server_pid"] = os.getpid()
+        return target
 
 
 def get_all_tasks_summary() -> List[Dict[str, Any]]:
-    """回傳所有任務的簡明摘要（供多分頁標籤導航欄使用）"""
+    """回傳指定 port 底下所有任務之簡明摘要 (供分頁導航列即時切換)"""
     with _LOCK:
+        tasks = db.get_all_tasks(_SERVER_PORT)
         summary = []
-        for tid, t in _TASKS.items():
+        for t in tasks:
+            tid = t.get("task_id") or t.get("id")
+            session_id = t.get("session_id", 1)
+            session_tickets = db.get_session_tickets(_SERVER_PORT, tid, session_id)
             summary.append({
                 "id": tid,
                 "name": t.get("name", "未命名任務"),
-                "is_running": t.get("is_running", False),
+                "is_running": bool(t.get("is_running", False)),
                 "round_count": t.get("round_count", 0),
                 "start_station_name": t.get("start_station_name", "出發"),
                 "end_station_name": t.get("end_station_name", "抵達"),
                 "ride_date": t.get("ride_date", ""),
-                "booked_count": t.get("booked_count", 0),
+                "booked_count": len(session_tickets),
                 "target_count": t.get("target_count", 1),
                 "last_log": t.get("last_log", ""),
-                "has_success": bool(t.get("ticket_result"))
+                "has_success": len(session_tickets) > 0 or bool(t.get("ticket_result"))
             })
         return summary
 
 
 def create_new_task(name: str = "") -> Dict[str, Any]:
-    """建立一個全新搶票任務"""
+    """建立一個全新撿票任務並存入 SQLite"""
     with _LOCK:
-        task_idx = len(_TASKS) + 1
-        new_id = f"task_{int(time.time())}_{str(uuid.uuid4())[:4]}"
-        task_name = name.strip() if name.strip() else f"任務 {task_idx}"
-        new_task = _create_default_task_payload(new_id, task_name)
-        _TASKS[new_id] = new_task
-        save_runtime_status()
-        return new_task
+        return db.create_task(_SERVER_PORT, name)
 
 
 def delete_task(task_id: str) -> bool:
-    """刪除指定任務（若正在運行則先停止，且至少保留一個任務）"""
+    """刪除指定任務 (若正在運行則先停止線程，且至少保留一個任務)"""
     with _LOCK:
-        if task_id not in _TASKS:
-            return False
-        if len(_TASKS) <= 1:
-            return False  # 不可刪除最後一個任務
-        
-        # 標記停止
-        _TASKS[task_id]["is_running"] = False
-        del _TASKS[task_id]
         if task_id in _TASK_THREADS:
             del _TASK_THREADS[task_id]
-        save_runtime_status()
-        return True
+        return db.delete_task(_SERVER_PORT, task_id)
 
 
 def rename_task(task_id: str, new_name: str) -> bool:
     """重新命名指定任務"""
     with _LOCK:
-        if task_id in _TASKS and new_name.strip():
-            _TASKS[task_id]["name"] = new_name.strip()
-            save_runtime_status()
-            return True
-        return False
+        return db.rename_task(_SERVER_PORT, task_id, new_name)
 
 
 def set_task_thread(task_id: str, thread: Optional[threading.Thread]):
@@ -199,46 +166,75 @@ def get_task_thread(task_id: str) -> Optional[threading.Thread]:
         return _TASK_THREADS.get(task_id)
 
 
+def get_stop_event(task_id: str) -> threading.Event:
+    with _LOCK:
+        if task_id not in _STOP_EVENTS:
+            _STOP_EVENTS[task_id] = threading.Event()
+        return _STOP_EVENTS[task_id]
+
+
+def is_task_running(task_id: str) -> bool:
+    """判斷任務是否正在運行中"""
+    with _LOCK:
+        ev = _STOP_EVENTS.get(task_id)
+        if ev and ev.is_set():
+            return False
+        th = _TASK_THREADS.get(task_id)
+        if th and not th.is_alive():
+            return False
+        task = db.get_task(_SERVER_PORT, task_id)
+        return bool(task.get("is_running", False)) if task else False
+
+
+def start_task(task_id: str):
+    """標記任務啟動，清除終止訊號"""
+    with _LOCK:
+        ev = get_stop_event(task_id)
+        ev.clear()
+
+
+def stop_task(task_id: str):
+    """主動發送停止訊號至指定任務之背景線程，並即時更新 SQLite is_running = 0"""
+    with _LOCK:
+        if task_id in _STOP_EVENTS:
+            _STOP_EVENTS[task_id].set()
+        db.update_task_fields(_SERVER_PORT, task_id, {"is_running": 0, "countdown": 0})
+
+
+def finish_task(task_id: str):
+    """任務完成或線程退出時標記狀態為停止，並安全清理背景線程參照"""
+    with _LOCK:
+        if task_id in _STOP_EVENTS:
+            _STOP_EVENTS[task_id].set()
+        if task_id in _TASK_THREADS:
+            del _TASK_THREADS[task_id]
+        db.update_task_fields(_SERVER_PORT, task_id, {"is_running": 0, "countdown": 0})
+
+
+def update_task_progress(task_id: str, round_count: int, countdown: float = 0.0):
+    """即時更新當前任務輪次與倒數秒數"""
+    db.update_task_fields(_SERVER_PORT, task_id, {"round_count": round_count, "countdown": countdown})
+
+
 def save_runtime_status():
-    """將當前所有任務之執行狀態與歷史日誌安全持久化至檔案"""
-    try:
-        tasks_data = {
-            "server_pid": os.getpid(),
-            "last_update": time.time(),
-            "tasks": _TASKS
-        }
-        for path in [STATUS_FILE_LOCAL, STATUS_FILE_TMP]:
-            if not path:
-                continue
-            try:
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(tasks_data, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
-    except Exception:
-        pass
+    """相容性介面：SQLite 每次異動即時自動寫入磁碟 (WAL)，此處保留作為防禦性呼叫"""
+    pass
 
 
 def add_log(msg: str, task_id: Optional[str] = None):
-    """追加日誌並保留最近 60 條歷史記錄，同時持久化存檔"""
+    """追加日誌並持久化至 SQLite"""
     with _LOCK:
-        if task_id and task_id in _TASKS:
-            target_task = _TASKS[task_id]
-        elif "default" in _TASKS:
-            target_task = _TASKS["default"]
-        elif _TASKS:
-            target_task = _TASKS[next(iter(_TASKS))]
-        else:
-            _TASKS["default"] = _create_default_task_payload("default", "任務 1")
-            target_task = _TASKS["default"]
-            
-        target_task["last_log"] = msg
-        logs = target_task.setdefault("logs", [])
-        if not logs or logs[-1] != msg:
-            logs.append(msg)
-            if len(logs) > 60:
-                target_task["logs"] = logs[-60:]
-        save_runtime_status()
+        tid = task_id or "default"
+        db.add_task_log(_SERVER_PORT, tid, msg)
+
+
+def remove_booked_ticket(booking_code: str, pid: Optional[str] = None):
+    """
+    從 SQLite tickets 表中刪除指定車票 (線上退票或過期刪除)。
+    一筆 SQL 刪除，本次 Session 明細與歷史紀錄瞬間同步更新！
+    """
+    with _LOCK:
+        return db.delete_ticket(booking_code, pid)
 
 
 def is_pid_alive(pid: int) -> bool:
@@ -253,31 +249,6 @@ def is_pid_alive(pid: int) -> bool:
 
 
 def read_external_status_if_alive() -> Optional[Dict[str, Any]]:
-    """若本實例未在運行，嘗試讀取 /tmp 或本機的狀態檔 (檢查 server_pid 是否存活)"""
-    for path in [STATUS_FILE_LOCAL, STATUS_FILE_TMP]:
-        if path and os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    pid = data.get("server_pid")
-                    if pid and is_pid_alive(pid):
-                        # 如果存的是多任務格式
-                        if "tasks" in data:
-                            return data["tasks"].get("default", next(iter(data["tasks"].values()), None))
-                        if data.get("is_running"):
-                            return data
-            except Exception:
-                pass
+    """相容性函數：SQLite 本身已為全行程共享之持久化資料庫"""
     return None
 
-
-def cleanup_status_files():
-    """關閉伺服器或結束進程時，標記任務為待機停止狀態並妥善存檔，保留上次設定結果不刪除 /tmp 暫存檔"""
-    try:
-        with _LOCK:
-            for t in _TASKS.values():
-                t["is_running"] = False
-                t["countdown"] = 0
-            save_runtime_status()
-    except Exception:
-        pass

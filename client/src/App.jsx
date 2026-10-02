@@ -6,10 +6,12 @@ import CriteriaCard from "./components/CriteriaCard";
 import TrainListCard from "./components/TrainListCard";
 import MonitorTerminal from "./components/MonitorTerminal";
 import HistoryModal from "./components/HistoryModal";
-import SuccessModal from "./components/SuccessModal";
+import SessionBookingsModal from "./components/SessionBookingsModal";
+import LoadingOverlay from "./components/LoadingOverlay";
 import ToastContainer from "./components/Toast";
 import { useI18n } from "./context/I18nContext";
 import { formatTaskName } from "./i18n/locales";
+import { translateCancelReason } from "./i18n/logTranslator";
 import * as api from "./services/api";
 
 export default function App() {
@@ -35,7 +37,20 @@ export default function App() {
     logs: [],
     cached_trains: [],
     ticket_result: null,
+    booked_tickets: [],
+    booked_count: 0,
   });
+
+  // 全域等待後端回應轉圈動畫
+  const [globalLoading, setGlobalLoading] = useState({
+    isVisible: false,
+    text: "處理中...",
+    subText: null,
+    badge: null,
+  });
+
+  // 全局退票/刪除車票進行中的代碼 (非 null 時傳遞給彈窗進行防護)
+  const [cancellingTicketCode, setCancellingTicketCode] = useState(null);
 
   // 車站字典列表
   const [stations, setStations] = useState([]);
@@ -50,9 +65,9 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyTickets, setHistoryTickets] = useState([]);
 
-  // 訂票成功彈窗
-  const [successTicket, setSuccessTicket] = useState(null);
-  const lastSuccessCodeRef = useRef(null);
+  // 本次 Session 訂票明細彈窗
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const knownTaskSuccessCodesRef = useRef({});
 
   // 用於在輪詢定時器內部隨時讀取最新 taskState，避免 stale closure
   const taskStateRef = useRef(taskState);
@@ -111,9 +126,9 @@ export default function App() {
         const normalizedDate = rawDate
           ? rawDate.replace(/\//g, "-")
           : (() => {
-              const d = new Date(Date.now() + 86400000);
-              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-            })();
+            const d = new Date(Date.now() + 86400000);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          })();
 
         setTaskState((prev) => ({
           ...prev,
@@ -127,13 +142,18 @@ export default function App() {
           split_mode: merged.split_mode || "single",
           cached_trains: merged.cached_trains || [],
           logs: merged.logs || [],
+          booked_tickets: merged.booked_tickets || [],
+          booked_count: merged.booked_count || 0,
         }));
 
-        // 同步已選擇的車次
         if (merged.target_trains && Array.isArray(merged.target_trains)) {
           setSelectedTrainNumbers(new Set(merged.target_trains));
         } else {
           setSelectedTrainNumbers(new Set());
+        }
+
+        if (merged.ticket_result && merged.ticket_result.booking_code && !merged.is_running) {
+          knownTaskSuccessCodesRef.current[activeTaskId] = merged.ticket_result.booking_code;
         }
       } catch (err) {
         console.error("Failed to load task data:", err);
@@ -142,7 +162,7 @@ export default function App() {
     loadTaskData();
   }, [activeTaskId]);
 
-  // 3a. 當前任務狀態輪詢（動態頻率 + 淺比對 Bailout 防止無謂重繪）
+  // 3a. 當前任務狀態輪詢
   useEffect(() => {
     let isMounted = true;
     let timeoutId = null;
@@ -161,8 +181,8 @@ export default function App() {
             const bookedCount = status.booked_count || 0;
             const targetCount = status.target_count || 1;
             const ticketResult = status.ticket_result || null;
+            const bookedTickets = status.booked_tickets || [];
 
-            // 比對日誌變化（長度及最新一條訊息）
             const isLogsSame =
               prev.logs === nextLogs ||
               (Array.isArray(prev.logs) &&
@@ -170,13 +190,13 @@ export default function App() {
                 prev.logs.length === nextLogs.length &&
                 prev.logs[prev.logs.length - 1] === nextLogs[nextLogs.length - 1]);
 
-            // 比對所有關鍵欄位，未發生實質異動則回傳 prev 原參照，觸發 React Bailout 不重繪
             if (
               prev.is_running === isRunning &&
               prev.round_count === roundCount &&
               prev.countdown === countdown &&
               prev.booked_count === bookedCount &&
               prev.target_count === targetCount &&
+              (prev.booked_tickets?.length || 0) === bookedTickets.length &&
               JSON.stringify(prev.ticket_result) === JSON.stringify(ticketResult) &&
               isLogsSame
             ) {
@@ -190,24 +210,22 @@ export default function App() {
               countdown: countdown,
               logs: nextLogs,
               ticket_result: ticketResult,
+              booked_tickets: bookedTickets,
               booked_count: bookedCount,
               target_count: targetCount,
             };
           });
 
-          // 偵測是否搶票成功
+          // 偵測是否搶票成功提示
           if (status.ticket_result && status.ticket_result.booking_code) {
             const code = status.ticket_result.booking_code;
-            if (lastSuccessCodeRef.current !== code) {
-              lastSuccessCodeRef.current = code;
-              setSuccessTicket(status.ticket_result);
+            if (knownTaskSuccessCodesRef.current[activeTaskId] !== code) {
+              knownTaskSuccessCodesRef.current[activeTaskId] = code;
               addToast("success", t("toast_ticket_success", { train: status.ticket_result.train_no, code }));
             }
           }
         }
-      } catch (err) {
-        // 伺服器短暫未響應時略過
-      }
+      } catch (_) { }
 
       if (!isMounted) return;
 
@@ -256,9 +274,7 @@ export default function App() {
             return newTasks;
           });
         }
-      } catch (err) {
-        // 靜默
-      }
+      } catch (_) { }
     };
 
     const intervalId = setInterval(pollTasks, 5000);
@@ -280,6 +296,13 @@ export default function App() {
       return;
     }
     setIsQuerying(true);
+    setGlobalLoading({
+      isVisible: true,
+      text: t("btn_querying") || "正在向官方系統查詢時刻表...",
+      subText: null,
+      badge: null,
+    });
+
     const dateFormatted = taskState.ride_date.replace(/-/g, "/");
     try {
       const res = await api.queryTimetable({
@@ -309,6 +332,7 @@ export default function App() {
       addToast("error", t("network_error", { err: String(err) }));
     } finally {
       setIsQuerying(false);
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
@@ -341,6 +365,13 @@ export default function App() {
       return;
     }
 
+    setGlobalLoading({
+      isVisible: true,
+      text: t("log_prepare_start") || "準備啟動撿票監控...",
+      subText: null,
+      badge: null,
+    });
+
     try {
       const payload = {
         task_id: activeTaskId,
@@ -356,13 +387,23 @@ export default function App() {
         cached_trains: taskState.cached_trains,
       };
 
-      const res = await api.startPolling(payload);
+      const [res] = await Promise.all([
+        api.startPolling(payload),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
       if (res.success) {
-        setTaskState((prev) => ({ ...prev, is_running: true }));
-        // 立即更新任務清單狀態，讓分頁燈號即時亮起
+        knownTaskSuccessCodesRef.current[activeTaskId] = null;
+        setTaskState((prev) => ({
+          ...prev,
+          is_running: true,
+          round_count: 0,
+          ticket_result: null,
+          booked_tickets: [],
+          booked_count: 0,
+        }));
         api.fetchTasks().then((tRes) => {
           if (tRes?.success && tRes?.tasks) setTasks(tRes.tasks);
-        }).catch(() => {});
+        }).catch(() => { });
         const currentTask = tasks.find((t) => t.id === activeTaskId);
         const taskDisplayName = formatTaskName(currentTask?.name || taskState.name || "任務 1", t);
         addToast("success", t("toast_task_started", { name: taskDisplayName }));
@@ -371,30 +412,50 @@ export default function App() {
       }
     } catch (err) {
       addToast("error", t("network_error", { err: String(err) }));
+    } finally {
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
   // 停止監控
   const handleStopPolling = async () => {
+    setGlobalLoading({
+      isVisible: true,
+      text: t("log_stop_signal_received") || "已收到停止指示，正在釋放背景程序...",
+      subText: null,
+      badge: null,
+    });
+
     try {
-      const res = await api.stopPolling(activeTaskId);
+      const [res] = await Promise.all([
+        api.stopPolling(activeTaskId),
+        new Promise((resolve) => setTimeout(resolve, 800)),
+      ]);
       if (res.success) {
         setTaskState((prev) => ({ ...prev, is_running: false }));
         // 立即更新任務清單狀態，讓分頁燈號即時熄滅
         api.fetchTasks().then((tRes) => {
           if (tRes?.success && tRes?.tasks) setTasks(tRes.tasks);
-        }).catch(() => {});
+        }).catch(() => { });
         const currentTask = tasks.find((t) => t.id === activeTaskId);
         const taskDisplayName = formatTaskName(currentTask?.name || taskState.name || "任務 1", t);
         addToast("info", t("toast_task_stopped", { name: taskDisplayName }));
       }
     } catch (err) {
       addToast("error", t("network_error", { err: String(err) }));
+    } finally {
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
   // 6. 多任務管理 (新增、刪除、重新命名)
   const handleAddTask = async () => {
+    setGlobalLoading({
+      isVisible: true,
+      text: t("saving_settings") || "正在儲存設定...",
+      subText: null,
+      badge: null,
+    });
     try {
       const nextNum = tasks.length + 1;
       const res = await api.createTask(`任務 ${nextNum}`);
@@ -406,10 +467,18 @@ export default function App() {
       }
     } catch (err) {
       addToast("error", t("toast_task_create_failed", { err: String(err) }));
+    } finally {
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
   const handleDeleteTask = async (taskId) => {
+    setGlobalLoading({
+      isVisible: true,
+      text: t("saving_settings") || "正在儲存設定...",
+      subText: null,
+      badge: null,
+    });
     try {
       const targetTask = tasks.find((t) => t.id === taskId);
       const targetName = formatTaskName(targetTask?.name || taskId, t);
@@ -425,10 +494,18 @@ export default function App() {
       }
     } catch (err) {
       addToast("error", t("toast_task_delete_failed", { err: String(err) }));
+    } finally {
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
   const handleRenameTask = async (taskId, newName) => {
+    setGlobalLoading({
+      isVisible: true,
+      text: t("saving_settings") || "正在儲存設定...",
+      subText: null,
+      badge: null,
+    });
     try {
       const res = await api.renameTask(taskId, newName);
       if (res.success) {
@@ -437,6 +514,8 @@ export default function App() {
       }
     } catch (err) {
       addToast("error", t("toast_task_rename_failed", { err: String(err) }));
+    } finally {
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
@@ -452,18 +531,66 @@ export default function App() {
   };
 
   const handleCancelTicketAction = async (bookingCode, pid, isExpired) => {
+    setCancellingTicketCode(bookingCode);
+    setGlobalLoading({
+      isVisible: true,
+      text: t("cancelling_overlay_title") || "正在連線進行退票程序...",
+      badge: `${t("cancelling_code_badge") || "訂票代碼："} ${bookingCode}`,
+      subText: t("cancelling_overlay_desc") || "請稍候，正向官方系統送出線上退票請求並同步更新資料庫，期間請勿關閉視窗...",
+    });
     try {
       const res = await api.cancelTicket(bookingCode, pid);
+
       if (res.success) {
-        addToast("success", res.msg || (isExpired ? t("alert_delete_expired_success", { code: bookingCode }) : t("alert_cancel_online_success", { code: bookingCode })));
-        // 重新整理歷史紀錄
+        const successMsg = (isExpired || res.is_expired)
+          ? t("alert_delete_expired_success", { code: bookingCode })
+          : t("alert_cancel_online_success", { code: bookingCode });
+        addToast("success", successMsg);
+        // 1. 重新向後端拉取最新的 Booking History (歷史紀錄清單)
         const updated = await api.fetchTickets();
         setHistoryTickets(updated || []);
+
+        // 2. 同步剔除當前 Task Session 中的對應票券，即時反映在 Current Session Ticket Details
+        setTaskState((prev) => {
+          const currentBooked = prev.booked_tickets || [];
+          const cleanCode = String(bookingCode).trim();
+          const nextBooked = currentBooked.filter(
+            (tk) => String(tk.booking_code).trim() !== cleanCode
+          );
+          if (nextBooked.length !== currentBooked.length) {
+            return {
+              ...prev,
+              booked_tickets: nextBooked,
+              booked_count: nextBooked.length,
+              ticket_result: prev.ticket_result?.booking_code === cleanCode
+                ? (nextBooked[nextBooked.length - 1] || null)
+                : prev.ticket_result,
+            };
+          }
+          return prev;
+        });
+
+        // 3. 向後端主動複核最新任務狀態，確保資料完全同步完成
+        try {
+          const st = await api.fetchStatus(activeTaskId);
+          if (st && Array.isArray(st.booked_tickets)) {
+            setTaskState((prev) => ({
+              ...prev,
+              booked_tickets: st.booked_tickets,
+              booked_count: st.booked_tickets.length,
+              ticket_result: st.ticket_result || null
+            }));
+          }
+        } catch (_) { }
       } else {
-        addToast("error", res.msg || t("alert_cancel_online_failed", { reason: "" }));
+        const reason = translateCancelReason(res.reason_code, res.reason || res.msg, t);
+        addToast("error", t("alert_cancel_online_failed", { reason }));
       }
     } catch (err) {
       addToast("error", t("network_error", { err: String(err) }));
+    } finally {
+      setCancellingTicketCode(null);
+      setGlobalLoading({ isVisible: false, text: "", subText: null, badge: null });
     }
   };
 
@@ -483,7 +610,7 @@ export default function App() {
           }}
         />
 
-        {/* 2. 多任務分頁標籤列 (方案 C 核心) */}
+        {/* 2. 多任務分頁標籤列 */}
         <TaskTabs
           tasks={tasks}
           activeTaskId={activeTaskId}
@@ -493,7 +620,7 @@ export default function App() {
           onRenameTask={handleRenameTask}
         />
 
-        {/* 3. 雙欄主要工作區 (手機自適應堆疊、平板/電腦左右並排) */}
+        {/* 3. 雙欄主要工作區 */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 items-start">
           {/* 左欄：乘車行程條件表單 (寬度 5/12) */}
           <div className="lg:col-span-5 w-full">
@@ -519,6 +646,8 @@ export default function App() {
               isRunning={taskState.is_running}
               onStartPolling={handleStartPolling}
               onStopPolling={handleStopPolling}
+              bookedTickets={taskState.booked_tickets || []}
+              onOpenSessionBookings={() => setIsSessionModalOpen(true)}
               isLocked={taskState.is_running}
             />
           </div>
@@ -537,13 +666,24 @@ export default function App() {
         onClose={() => setIsHistoryOpen(false)}
         tickets={historyTickets}
         onCancelTicket={handleCancelTicketAction}
+        cancellingCode={cancellingTicketCode}
       />
 
-      {/* 6. 搶票成功慶祝彈窗 */}
-      <SuccessModal
-        isOpen={Boolean(successTicket)}
-        onClose={() => setSuccessTicket(null)}
-        ticketData={successTicket}
+      {/* 6. 本次 Session 訂票明細彈窗 */}
+      <SessionBookingsModal
+        isOpen={isSessionModalOpen}
+        onClose={() => setIsSessionModalOpen(false)}
+        tickets={taskState.booked_tickets || []}
+        onCancelTicket={handleCancelTicketAction}
+        cancellingCode={cancellingTicketCode}
+      />
+
+      {/* 7. 全局等待後端回應轉圈動畫遮罩 (參考 money-tracker 實作，z-[9999]) */}
+      <LoadingOverlay
+        isVisible={globalLoading.isVisible}
+        text={globalLoading.text}
+        subText={globalLoading.subText}
+        badge={globalLoading.badge}
       />
     </div>
   );

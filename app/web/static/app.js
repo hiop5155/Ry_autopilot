@@ -132,7 +132,24 @@ const I18N = {
     log_ticket_success_split_tpl: "🎉 撿票成功！車次 {train} | 訂票代碼：{code} (進度: {curr}/{total} 張)",
     log_all_completed_split_tpl: "🎊 已成功訂妥全部 {n} 張車票（共 {orders} 筆訂單）！任務完成。",
     log_remaining_split_tpl: "📌 目前已取得 {curr} 張，尚缺 {rem} 張，持續撿票監控中...",
-    status_partial_split_tpl: "已成功搶得 {booked}/{total} 張！持續追蹤第 {next} 張中..."
+    status_partial_split_tpl: "已成功搶得 {booked}/{total} 張！持續追蹤第 {next} 張中...",
+    log_stop_signal_received: "已收到停止指示，正在釋放背景程序...",
+    log_batch_tpl: "批次 {curr}/{total} ({trains})",
+    log_batch_simple_tpl: "批次 {curr}/{total}",
+    log_booking_feedback_tpl: "[{time}] {batch}訂票反饋: {msg}{ocr}",
+    log_query_finished_wait_tpl: "[{time}] {msg}，等待下次查詢...",
+    log_session_error_retry_tpl: "[{time}] {batch}瀏覽器連線中斷，已完成自動重啟修復，將於下輪重試",
+    log_session_error_wait_tpl: "[{time}] 瀏覽器連線中斷，已完成自動重啟修復，將於下次重新查詢...",
+    log_maint_recycling_tpl: "♻️ [定期維護] 已連續監控 {n} 輪，正在主動回收 Chrome 資源以釋放記憶體...",
+    log_maint_restarted: "♻️ [定期維護] Chrome 瀏覽器資源回收完成，重啟就緒。",
+    log_maint_error_tpl: "⚠️ [定期維護] 重啟瀏覽器發生微誤: {err}",
+    msg_input_error: "輸入資料有誤，請檢查身分證號或起訖站",
+    msg_no_seats: "該條件目前客滿無剩餘座位",
+    msg_server_retry: "票務伺服器回應臨時異常，準備自動重試",
+    msg_captcha_retry: "本輪查詢未完成，準備重新查詢",
+    msg_session_error: "瀏覽器連線中斷，已完成自動重啟修復",
+    msg_no_seats_short: "無座位",
+    msg_query_done: "查詢完畢"
   },
   "en": {
     app_title: "Railway Smart Auto-Booking System",
@@ -262,7 +279,24 @@ const I18N = {
     log_ticket_success_split_tpl: "🎉 Booking Success! Train {train} | Code: {code} (Progress: {curr}/{total} tickets)",
     log_all_completed_split_tpl: "🎊 Awesome! Successfully booked all {n} tickets (in {orders} orders)! Task completed.",
     log_remaining_split_tpl: "📌 Secured {curr} ticket(s), {rem} more needed. Continuing monitoring...",
-    status_partial_split_tpl: "Secured {booked}/{total} tickets! Hunting for ticket #{next}..."
+    status_partial_split_tpl: "Secured {booked}/{total} tickets! Hunting for ticket #{next}...",
+    log_stop_signal_received: "Stop signal received, releasing background processes...",
+    log_batch_tpl: "Batch {curr}/{total} ({trains})",
+    log_batch_simple_tpl: "Batch {curr}/{total}",
+    log_booking_feedback_tpl: "[{time}] {batch}Booking feedback: {msg}{ocr}",
+    log_query_finished_wait_tpl: "[{time}] {msg}, waiting for next check...",
+    log_session_error_retry_tpl: "[{time}] {batch}Browser connection lost, auto-restart completed, will retry next round",
+    log_session_error_wait_tpl: "[{time}] Browser connection lost, auto-restart completed, waiting for next check...",
+    log_maint_recycling_tpl: "♻️ [Maintenance] Monitored for {n} rounds continuously, recycling Chrome resources to free memory...",
+    log_maint_restarted: "♻️ [Maintenance] Chrome resource recycling completed, browser restarted and ready.",
+    log_maint_error_tpl: "⚠️ [Maintenance] Minor error while restarting browser: {err}",
+    msg_input_error: "Invalid input data, please check Passenger ID or stations",
+    msg_no_seats: "Currently sold out, no seats available",
+    msg_server_retry: "Ticket server temporary anomaly, preparing to retry automatically",
+    msg_captcha_retry: "Current round incomplete, preparing to retry",
+    msg_session_error: "Browser connection lost, auto-restart completed",
+    msg_no_seats_short: "No seats",
+    msg_query_done: "Query completed"
   },
   "ja": {
     app_title: "スマート鉄道自動予約システム",
@@ -393,7 +427,24 @@ const I18N = {
     log_ticket_success_split_tpl: "🎉 予約確保！列車 {train} | 予約コード: {code} (進捗: {curr}/{total} 枚)",
     log_all_completed_split_tpl: "🎊 目標達成！全 {n} 枚のチケット確保が完了しました（計 {orders} 件）！",
     log_remaining_split_tpl: "📌 現在 {curr} 枚確保、残り {rem} 枚を継続監視中...",
-    status_partial_split_tpl: "{booked}/{total} 枚確保成功！残り {rem} 枚を監視中..."
+    status_partial_split_tpl: "{booked}/{total} 枚確保成功！残り {rem} 枚を監視中...",
+    log_stop_signal_received: "停止指示を受信しました。バックグラウンド処理を解放中...",
+    log_batch_tpl: "バッチ {curr}/{total} ({trains})",
+    log_batch_simple_tpl: "バッチ {curr}/{total}",
+    log_booking_feedback_tpl: "[{time}] {batch}予約フィードバック: {msg}{ocr}",
+    log_query_finished_wait_tpl: "[{time}] {msg}、次回再照会をお待ちください...",
+    log_session_error_retry_tpl: "[{time}] {batch}ブラウザ接続が切断されました。自動再起動が完了しました。次回試行します",
+    log_session_error_wait_tpl: "[{time}] ブラウザ接続が切断されました。自動再起動が完了しました。次回再照会をお待ちください...",
+    log_maint_recycling_tpl: "♻️ [定期メンテナンス] {n} ラウンド連続監視中、メモリ解放のため Chrome リソースを自動回収しています...",
+    log_maint_restarted: "♻️ [定期メンテナンス] Chrome リソースの回収が完了し、再起動の準備が整いました。",
+    log_maint_error_tpl: "⚠️ [定期メンテナンス] ブラウザ再起動中に軽微なエラーが発生しました: {err}",
+    msg_input_error: "入力データに誤りがあります。ID番号または発着駅を確認してください",
+    msg_no_seats: "満席のため空席がありません",
+    msg_server_retry: "発券サーバー一時異常、自動再試行を準備中",
+    msg_captcha_retry: "今回の照会が完了していません。再照会を準備中",
+    msg_session_error: "ブラウザ接続が切断されました。自動再起動が完了しました",
+    msg_no_seats_short: "空席なし",
+    msg_query_done: "照会完了"
   },
   "ko": {
     app_title: "철도 스마트 자동 예매 시스템",
@@ -523,7 +574,24 @@ const I18N = {
     log_ticket_success_split_tpl: "🎉 예매 성공! 열차 {train} | 예약번호: {code} (진행: {curr}/{total} 장)",
     log_all_completed_split_tpl: "🎊 축하합니다! 총 {n}장의 티켓을 모두 성공적으로 예매했습니다（총 {orders}건）!",
     log_remaining_split_tpl: "📌 현재 {curr}장 확보, 남은 {rem}장 지속 모니터링 중...",
-    status_partial_split_tpl: "{booked}/{total} 장 확보 완료! 남은 {rem} 장 모니터링 중..."
+    status_partial_split_tpl: "{booked}/{total} 장 확보 완료! 남은 {rem} 장 모니터링 중...",
+    log_stop_signal_received: "중지 명령을 수신했습니다. 백그라운드 프로세스를 해제하는 중...",
+    log_batch_tpl: "배치 {curr}/{total} ({trains})",
+    log_batch_simple_tpl: "배치 {curr}/{total}",
+    log_booking_feedback_tpl: "[{time}] {batch}예매 피드백: {msg}{ocr}",
+    log_query_finished_wait_tpl: "[{time}] {msg}, 다음 조회 대기 중...",
+    log_session_error_retry_tpl: "[{time}] {batch}브라우저 연결 끊김, 자동 재시작 복구 완료, 다음 라운드에서 재시도합니다",
+    log_session_error_wait_tpl: "[{time}] 브라우저 연결 끊김, 자동 재시작 복구 완료, 다음 조회 대기 중...",
+    log_maint_recycling_tpl: "♻️ [정기 유지관리] {n} 라운드 연속 모니터링 중, 메모리 확보를 위해 Chrome 리소스를 회수하고 있습니다...",
+    log_maint_restarted: "♻️ [정기 유지관리] Chrome 리소스 회수 완료, 브라우저 재시작 준비 완료.",
+    log_maint_error_tpl: "⚠️ [정기 유지관리] 브라우저 재시작 중 경미한 오류 발생: {err}",
+    msg_input_error: "입력 정보 오류, 신분증 번호 또는 출도착역을 확인하세요",
+    msg_no_seats: "현재 만석으로 잔여 좌석이 없습니다",
+    msg_server_retry: "발권 서버 일시적 오류, 자동 재시도 준비 중",
+    msg_captcha_retry: "이번 조회가 완료되지 않음, 재조회 준비 중",
+    msg_session_error: "브라우저 연결 끊김, 자동 재시작 복구 완료",
+    msg_no_seats_short: "좌석 없음",
+    msg_query_done: "조회 완료"
   }
 };
 
@@ -770,6 +838,48 @@ function updateFormControlsLock(isLocked) {
   if (trainsCard) trainsCard.classList.toggle("locked-card", isLocked);
 }
 
+function formatBatch(batchStr) {
+  if (!batchStr || typeof batchStr !== "string") return batchStr;
+  const m = batchStr.match(/批次\s*(\d+)\/(\d+)(?:\s*\((.*?)\))?/) ||
+            batchStr.match(/Batch\s*(\d+)\/(\d+)(?:\s*\((.*?)\))?/) ||
+            batchStr.match(/バッチ\s*(\d+)\/(\d+)(?:\s*\((.*?)\))?/) ||
+            batchStr.match(/배치\s*(\d+)\/(\d+)(?:\s*\((.*?)\))?/);
+  if (m) {
+    if (m[3]) {
+      return t("log_batch_tpl", { curr: m[1], total: m[2], trains: m[3] });
+    }
+    return t("log_batch_simple_tpl", { curr: m[1], total: m[2] });
+  }
+  return batchStr;
+}
+
+function translateFeedbackMsg(msg) {
+  if (!msg || typeof msg !== "string") return msg;
+  const trimmed = msg.trim();
+  if (trimmed.includes("輸入資料有誤") || trimmed.includes("檢查身分證") || trimmed.includes("檢查PID") || trimmed.includes("Invalid input")) {
+    return t("msg_input_error");
+  }
+  if (trimmed.includes("客滿無剩餘座位") || trimmed.includes("無剩餘座位") || trimmed.includes("sold out") || trimmed.includes("満席") || trimmed.includes("만석")) {
+    return t("msg_no_seats");
+  }
+  if (trimmed.includes("伺服器回應臨時異常") || trimmed.includes("臨時異常") || trimmed.includes("server temporary anomaly") || trimmed.includes("サーバー一時異常") || trimmed.includes("서버 일시적 오류")) {
+    return t("msg_server_retry");
+  }
+  if (trimmed.includes("本輪查詢未完成") || trimmed.includes("重新查詢") || trimmed.includes("round incomplete") || trimmed.includes("再照会を準備中") || trimmed.includes("재조회 준비 중")) {
+    return t("msg_captcha_retry");
+  }
+  if (trimmed.includes("瀏覽器連線中斷") || trimmed.includes("Browser connection lost") || trimmed.includes("ブラウザ接続が切断") || trimmed.includes("브라우저 연결 끊김")) {
+    return t("msg_session_error");
+  }
+  if (trimmed === "無座位" || trimmed === "No seats" || trimmed === "空席なし" || trimmed === "좌석 없음") {
+    return t("msg_no_seats_short");
+  }
+  if (trimmed === "查詢完畢" || trimmed === "Query completed" || trimmed === "照会完了" || trimmed === "조회 완료") {
+    return t("msg_query_done");
+  }
+  return msg;
+}
+
 function formatLogMessage(raw) {
   if (!raw || typeof raw !== "string") return raw;
 
@@ -834,7 +944,7 @@ function formatLogMessage(raw) {
   if (m) {
     return t("log_no_seats_tpl", {
       time: m[1],
-      batch: m[2] ? `[${m[2]}] ` : "",
+      batch: m[2] ? `[${formatBatch(m[2])}] ` : "",
       ocr: m[3] ? ` (OCR: ${m[3]})` : ""
     });
   }
@@ -844,7 +954,7 @@ function formatLogMessage(raw) {
   if (m) {
     return t("log_captcha_retry_tpl", {
       time: m[1],
-      batch: m[2] ? `[${m[2]}] ` : "",
+      batch: m[2] ? `[${formatBatch(m[2])}] ` : "",
       ocr: m[3] ? ` (OCR: ${m[3]})` : ""
     });
   }
@@ -881,6 +991,69 @@ function formatLogMessage(raw) {
   m = raw.match(/📌\s*(?:剩餘待訂車次|各班待訂進度)：(.*?)，持續撿票監控中\.\.\./) ||
     raw.match(/📌\s*Remaining trains:\s*(.*?), continuing/);
   if (m) return t("log_remaining_trains_tpl", { trains: m[1] });
+
+  // 14. 定期維護
+  m = raw.match(/♻️\s*\[(?:定期維護|Maintenance|定期メンテナンス|정기 유지관리)\]\s*(?:已連續監控\s*(\d+)\s*輪，正在主動回收 Chrome 資源以釋放記憶體\.\.\.|Monitored for\s*(\d+)\s*rounds continuously, recycling Chrome resources to free memory\.\.\.)/);
+  if (m) {
+    return t("log_maint_recycling_tpl", { n: m[1] || m[2] });
+  }
+
+  if (
+    raw.includes("Chrome 瀏覽器資源回收完成，重啟就緒") ||
+    raw.includes("Chrome resource recycling completed, browser restarted and ready") ||
+    raw.includes("Chrome リソースの回収が完了し、再起動の準備が整いました") ||
+    raw.includes("Chrome 리소스 회수 완료, 브라우저 재시작 준비 완료")
+  ) {
+    return t("log_maint_restarted");
+  }
+
+  m = raw.match(/⚠️\s*\[(?:定期維護|Maintenance|定期メンテナンス|정기 유지관리)\]\s*(?:重啟瀏覽器發生微誤|Minor error while restarting browser):\s*(.+)/);
+  if (m) {
+    return t("log_maint_error_tpl", { err: m[1] });
+  }
+
+  // 15. Session 斷線自動修復
+  m = raw.match(/\[(\d{2}:\d{2}:\d{2})\]\s*(?:\[(.*?)\]\s*)?(?:瀏覽器連線中斷，已完成自動重啟修復，將於下輪重試|Browser connection lost, auto-restart completed, will retry next round)/);
+  if (m) {
+    const formattedBatch = m[2] ? `[${formatBatch(m[2])}] ` : "";
+    return t("log_session_error_retry_tpl", {
+      time: m[1],
+      batch: formattedBatch,
+    });
+  }
+
+  m = raw.match(/\[(\d{2}:\d{2}:\d{2})\]\s*(?:瀏覽器連線中斷，已完成自動重啟修復，將於下次重新查詢\.\.\.|Browser connection lost, auto-restart completed, waiting for next check\.\.\.)/);
+  if (m) {
+    return t("log_session_error_wait_tpl", {
+      time: m[1],
+    });
+  }
+
+  // 16. 訂票反饋
+  m = raw.match(/\[(\d{2}:\d{2}:\d{2})\]\s*(?:\[(.*?)\]\s*)?(?:訂票反饋|Booking feedback|予約フィードバック|예매 피드백):\s*(.+?)(?:\s*\(OCR:\s*(.*?)\))?$/);
+  if (m) {
+    const formattedBatch = m[2] ? `[${formatBatch(m[2])}] ` : "";
+    return t("log_booking_feedback_tpl", {
+      time: m[1],
+      batch: formattedBatch,
+      msg: translateFeedbackMsg(m[3]),
+      ocr: m[4] ? ` (OCR: ${m[4]})` : "",
+    });
+  }
+
+  // 17. 查詢完畢等待下次查詢
+  m = raw.match(/\[(\d{2}:\d{2}:\d{2})\]\s*(.+?)，等待下次查詢\.\.\./) ||
+      raw.match(/\[(\d{2}:\d{2}:\d{2})\]\s*(.+?),\s*waiting for next check\.\.\./);
+  if (m) {
+    return t("log_query_finished_wait_tpl", {
+      time: m[1],
+      msg: translateFeedbackMsg(m[2]),
+    });
+  }
+
+  // 18. 發生異常
+  m = raw.match(/發生異常:\s*(.+)/);
+  if (m) return t("log_error_tpl", { e: m[1] });
 
   return raw;
 }
@@ -1509,11 +1682,6 @@ async function restoreRunningSession() {
       startStatusPolling();
     } else {
       updateFormControlsLock(false);
-      if (state.booked_tickets && state.booked_tickets.length > 0) {
-        showSuccessModal(state.booked_tickets);
-      } else if (state.ticket_result && state.ticket_result.success) {
-        showSuccessModal([state.ticket_result]);
-      }
     }
   } catch (err) {
     console.warn("無法還原背景運行狀態:", err);
@@ -1889,6 +2057,7 @@ async function startPolling() {
     });
     const data = await res.json();
     if (data.success) {
+      document.getElementById("successModal").style.display = "none";
       isCurrentRunning = true;
       hasStopped = false;
       updateFormControlsLock(true);
@@ -2072,18 +2241,32 @@ function showSuccessModal(ticketsData) {
   document.getElementById("successModal").style.display = "flex";
 }
 
-// 輔助函式：從車票資訊中解析出乘車日期 (如 "09/26", "09/25")
+// 輔助函式：從車票資訊中解析出乘車日期 (如 "09/26", "10/15")
 function extractTicketDate(tObj) {
+  if (!tObj) return t("other_date");
+  if (tObj.ride_date) {
+    const parts = tObj.ride_date.split(/[-/]/);
+    if (parts.length === 3) {
+      const m = parts[1].padStart(2, '0');
+      const d = parts[2].padStart(2, '0');
+      return `${m}/${d}`;
+    }
+    return tObj.ride_date;
+  }
   if (tObj.trip_info) {
-    const m = tObj.trip_info.match(/(\d{1,2}\/\d{1,2})/);
-    if (m) return m[1];
+    const m = tObj.trip_info.match(/(\d{1,2})\/(\d{1,2})/);
+    if (m) {
+      return `${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}`;
+    }
   }
   if (tObj.created_at) {
-    const parts = tObj.created_at.split(" ")[0].split("-");
+    const parts = tObj.created_at.split(" ")[0].split(/[-/]/);
     if (parts.length === 3) {
-      return `${parts[1]}/${parts[2]}`;
+      const m = parts[1].padStart(2, '0');
+      const d = parts[2].padStart(2, '0');
+      return `${m}/${d}`;
     }
-    return tObj.created_at.split(" ")[0];
+    return parts[0];
   }
   return t("other_date");
 }

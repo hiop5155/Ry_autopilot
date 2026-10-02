@@ -3,27 +3,37 @@ import React, { useState, useMemo } from "react";
 import { X, Calendar, Ticket, Trash2, Clock, Copy, Check, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useI18n } from "../context/I18nContext";
 
-// 輔助函式：從車票物件中精準解析乘車日期 (如 "09/26", "09/25")
+// 輔助函式：從車票物件中精準解析乘車日期 (如 "09/26", "10/15")
 export function extractTicketDate(tk) {
   if (!tk) return "其他";
   if (tk.ride_date) {
-    const parts = tk.ride_date.split("-");
-    if (parts.length === 3) return `${parts[1]}/${parts[2]}`;
+    const parts = tk.ride_date.split(/[-/]/);
+    if (parts.length === 3) {
+      const m = parts[1].padStart(2, '0');
+      const d = parts[2].padStart(2, '0');
+      return `${m}/${d}`;
+    }
     return tk.ride_date;
   }
   if (tk.trip_info) {
-    const m = tk.trip_info.match(/(\d{1,2}\/\d{1,2})/);
-    if (m) return m[1];
+    const m = tk.trip_info.match(/(\d{1,2})\/(\d{1,2})/);
+    if (m) {
+      return `${m[1].padStart(2, '0')}/${m[2].padStart(2, '0')}`;
+    }
   }
   if (tk.created_at) {
-    const parts = tk.created_at.split(" ")[0].split("-");
-    if (parts.length === 3) return `${parts[1]}/${parts[2]}`;
+    const parts = tk.created_at.split(" ")[0].split(/[-/]/);
+    if (parts.length === 3) {
+      const m = parts[1].padStart(2, '0');
+      const d = parts[2].padStart(2, '0');
+      return `${m}/${d}`;
+    }
     return parts[0];
   }
   return "其他";
 }
 
-// 輔助函式：判斷是否已過繳費期限 (支援台鐵 24:00 隔日機制)
+// 輔助函式：判斷是否已過繳費期限 (支援官方 24:00 隔日機制)
 export function isTicketDeadlineExpired(deadlineStr, createdAt) {
   if (!deadlineStr || typeof deadlineStr !== "string") return false;
   try {
@@ -58,16 +68,25 @@ export function isTicketDeadlineExpired(deadlineStr, createdAt) {
   return false;
 }
 
+// 輔助函式：讀取訂票成功寫入資料庫的本筆訂單張數 (ticket_qty)
+export function getTicketQuantity(tk) {
+  if (!tk) return 1;
+  const q = tk.ticket_qty || tk.qty;
+  return Number(q) > 0 ? Number(q) : 1;
+}
+
 export default function HistoryModal({
   isOpen,
   onClose,
   tickets = [],
   onCancelTicket,
+  cancellingCode: externalCancellingCode = null,
 }) {
   const { t } = useI18n();
   const [selectedDateFilter, setSelectedDateFilter] = useState("all");
   const [confirmingCode, setConfirmingCode] = useState(null);
-  const [cancellingCode, setCancellingCode] = useState(null);
+  const [localCancellingCode, setLocalCancellingCode] = useState(null);
+  const cancellingCode = externalCancellingCode || localCancellingCode;
   const [copiedKey, setCopiedKey] = useState(null);
 
   // 整理所有乘車日期膠囊
@@ -103,18 +122,50 @@ export default function HistoryModal({
   const handleConfirmCancel = async (ticket) => {
     const deadline = ticket.pay_deadline || ticket.payment_deadline;
     const expired = isTicketDeadlineExpired(deadline, ticket.created_at);
-    setCancellingCode(ticket.booking_code);
+    setLocalCancellingCode(ticket.booking_code);
     try {
-      await onCancelTicket(ticket.booking_code, ticket.pid, expired);
+      if (onCancelTicket) {
+        await onCancelTicket(ticket.booking_code, ticket.pid, expired);
+      }
     } finally {
-      setCancellingCode(null);
+      setLocalCancellingCode(null);
       setConfirmingCode(null);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="relative bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* 全局退票操作鎖定動畫阻擋層 */}
+        {cancellingCode && (
+          <div className="absolute inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200 select-none cursor-wait">
+            <div className="relative flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 animate-ping absolute" />
+              <div className="w-14 h-14 rounded-full border-4 border-red-500/30 border-t-red-500 animate-spin" />
+              <div className="absolute flex items-center justify-center text-red-400">
+                <Trash2 className="w-6 h-6 animate-pulse" />
+              </div>
+            </div>
+
+            <h4 className="text-base font-bold text-white mb-1.5 tracking-wide">
+              {t("cancelling_overlay_title")}
+            </h4>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-amber-500/40 text-amber-400 font-mono text-sm font-bold shadow-md shadow-amber-950/30 mb-2">
+              <span>{t("cancelling_code_badge")}</span>
+              <span className="tracking-wider">{cancellingCode}</span>
+            </div>
+
+            <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
+              {t("cancelling_overlay_desc")}
+            </p>
+
+            <div className="w-48 h-1 bg-slate-800 rounded-full mt-4 overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-amber-400 to-red-500 animate-pulse" />
+            </div>
+          </div>
+        )}
+
         {/* Modal 頂部標題 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/60 shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -128,8 +179,9 @@ export default function HistoryModal({
           </div>
           <button
             type="button"
+            disabled={Boolean(cancellingCode)}
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0 ml-2"
+            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
           </button>
@@ -141,11 +193,10 @@ export default function HistoryModal({
             <button
               type="button"
               onClick={() => setSelectedDateFilter("all")}
-              className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap transition-all cursor-pointer ${
-                selectedDateFilter === "all"
-                  ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-950"
-                  : "bg-slate-800 text-slate-400 hover:text-white"
-              }`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap transition-all cursor-pointer ${selectedDateFilter === "all"
+                ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-950"
+                : "bg-slate-800 text-slate-400 hover:text-white"
+                }`}
             >
               {t("pill_all")} ({tickets.length})
             </button>
@@ -154,11 +205,10 @@ export default function HistoryModal({
                 key={date}
                 type="button"
                 onClick={() => setSelectedDateFilter(date)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${
-                  selectedDateFilter === date
-                    ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-950"
-                    : "bg-slate-800 text-slate-400 hover:text-white"
-                }`}
+                className={`px-3 py-1 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer ${selectedDateFilter === date
+                  ? "bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-950"
+                  : "bg-slate-800 text-slate-400 hover:text-white"
+                  }`}
               >
                 <span>📅 {date}</span>
                 <span className="opacity-80">({dateGroups[date]})</span>
@@ -181,6 +231,7 @@ export default function HistoryModal({
               const isConfirming = confirmingCode === tk.booking_code;
               const isProcessing = cancellingCode === tk.booking_code;
               const rideDate = extractTicketDate(tk);
+              const ticketQty = getTicketQuantity(tk);
               const seatText = tk.seat || tk.seat_info || t("seat_auto_assigned");
 
               // 解析區間資訊
@@ -192,13 +243,12 @@ export default function HistoryModal({
               return (
                 <div
                   key={tk.booking_code}
-                  className={`bg-slate-950/80 border rounded-xl p-4 flex flex-col gap-3 shadow-lg transition-all ${
-                    expired
-                      ? "border-slate-800 opacity-80"
-                      : "border-slate-800 hover:border-slate-700"
-                  }`}
+                  className={`bg-slate-950/80 border rounded-xl p-4 flex flex-col gap-3 shadow-lg transition-all ${expired
+                    ? "border-slate-800 opacity-80"
+                    : "border-slate-800 hover:border-slate-700"
+                    }`}
                 >
-                  {/* 頂部：取票代碼 + 狀態標籤 */}
+                  {/* 頂部：取票代碼 + 張數徽章 + 狀態標籤 */}
                   <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
                     <div>
                       <span className="text-[11px] text-slate-500 font-medium block">
@@ -207,6 +257,9 @@ export default function HistoryModal({
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xl font-bold text-amber-400 tracking-wider">
                           {tk.booking_code}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          {t("ticket_qty_tag", { n: ticketQty })}
                         </span>
                         <button
                           type="button"
@@ -223,20 +276,26 @@ export default function HistoryModal({
                       </div>
                     </div>
 
-                    <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${
-                        expired
+                    <div className="flex items-center gap-2">
+                      {tk.task_name && (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          {tk.task_name}
+                        </span>
+                      )}
+                      <span
+                        className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${expired
                           ? "bg-slate-800 text-slate-400 border border-slate-700"
                           : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{expired ? t("badge_expired") : t("badge_active")}</span>
-                    </span>
+                          }`}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{expired ? t("badge_expired") : t("badge_active")}</span>
+                      </span>
+                    </div>
                   </div>
 
-                  {/* 核心資訊網格 (4 欄響應式展示) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs bg-slate-900/50 p-3 rounded-lg border border-slate-800/60">
+                  {/* 核心資訊網格 (5 欄響應式展示) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs bg-slate-900/50 p-3 rounded-lg border border-slate-800/60">
                     {/* 1. 取票 PID */}
                     <div>
                       <span className="text-slate-500 block mb-0.5 font-medium">{t("pid_label")}</span>
@@ -273,11 +332,26 @@ export default function HistoryModal({
                     <div>
                       <span className="text-slate-500 block mb-0.5 font-medium">{t("train_label")}</span>
                       <span className="font-semibold text-slate-200">
-                        {tk.train_type ? `${tk.train_type} ` : ""}{tk.train_no} {t("train_unit")}
+                        {(() => {
+                          let tType = (tk.train_type || "").trim();
+                          const tNo = String(tk.train_no || "").trim();
+                          if (tNo && tType.endsWith(tNo)) {
+                            tType = tType.slice(0, -tNo.length).trim();
+                          }
+                          return `${tType ? `${tType} ` : ""}${tNo} ${t("train_unit")}`;
+                        })()}
                       </span>
                     </div>
 
-                    {/* 4. 座位 */}
+                    {/* 4. 訂購張數 */}
+                    <div>
+                      <span className="text-slate-500 block mb-0.5 font-medium">{t("ticket_qty_label")}</span>
+                      <span className="font-bold text-amber-400 font-mono">
+                        🎫 {t("ticket_qty_tag", { n: ticketQty })}
+                      </span>
+                    </div>
+
+                    {/* 5. 座位 */}
                     <div>
                       <span className="text-slate-500 block mb-0.5 font-medium">{t("seat_label")}</span>
                       <span className={`font-semibold ${seatText.includes("車") ? "text-emerald-400 font-mono" : "text-slate-300"}`}>
@@ -339,11 +413,10 @@ export default function HistoryModal({
                       <button
                         type="button"
                         onClick={() => setConfirmingCode(tk.booking_code)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                          expired
-                            ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-                            : "bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${expired
+                          ? "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                          : "bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30"
+                          }`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>{expired ? t("btn_delete_expired") : t("btn_cancel_online")}</span>

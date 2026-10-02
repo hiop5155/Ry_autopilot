@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "背景輪詢與撿票調度流程 (Worker Flow)",
+    "subtitle": "負責任務初始化、整筆/拆單批次構建、多輪循環調度與滿額自動終止",
+    "output": "worker_flow.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "polling-loop",
+        "label": "核心輪詢主迴圈",
+        "focus": ["worker_start", "batch_planner", "round_counter", "engine_dispatch", "result_eval", "progress_update", "cooldown_wait"],
+        "note": "多輪循環監控座位、調度核心引擎並進行冷卻等待之主流程。"
+      },
+      {
+        "id": "completion-path",
+        "label": "成功訂票與達成結算",
+        "focus": ["result_eval", "progress_update", "save_ticket_store", "task_completed"],
+        "note": "撿票成功時之票券持久化儲存與任務目標滿額檢查。"
+      },
+      {
+        "id": "lifecycle-control",
+        "label": "生命週期控制與停止",
+        "focus": ["stop_listener", "cooldown_wait", "engine_dispatch"],
+        "note": "手動停止指示、線程安全鎖與背景資源安全釋放。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "worker_start",
+      "type": "backend",
+      "label": "啟動工作線程",
+      "sublabel": "載入設定與目標車次",
+      "pos": [40, 260],
+      "size": [130, 60],
+      "tag": "Thread Start"
+    },
+    {
+      "id": "batch_planner",
+      "type": "backend",
+      "label": "批次請求規劃",
+      "sublabel": "整筆/拆單 (每批上限3班)",
+      "pos": [250, 260],
+      "size": [130, 60],
+      "tag": "佇列構建"
+    },
+    {
+      "id": "round_counter",
+      "type": "messagebus",
+      "label": "輪詢週期計數",
+      "sublabel": "遞增 round_count 與狀態",
+      "pos": [460, 260],
+      "size": [130, 60],
+      "tag": "循環起點"
+    },
+    {
+      "id": "engine_dispatch",
+      "type": "backend",
+      "label": "調度訂票引擎",
+      "sublabel": "調用 BookingEngine 執行",
+      "pos": [670, 260],
+      "size": [130, 60],
+      "tag": "WebDriver"
+    },
+    {
+      "id": "result_eval",
+      "type": "security",
+      "label": "狀態評估決策",
+      "sublabel": "SUCCESS / NO_SEATS",
+      "pos": [880, 260],
+      "size": [130, 60],
+      "tag": "回饋分流"
+    },
+    {
+      "id": "progress_update",
+      "type": "database",
+      "label": "累計撿票進度",
+      "sublabel": "已訂張數+1, 移除滿額車次",
+      "pos": [1100, 150],
+      "size": [130, 60],
+      "tag": "進度更新"
+    },
+    {
+      "id": "save_ticket_store",
+      "type": "database",
+      "label": "持久化票券資料",
+      "sublabel": "寫入 JSON 與 TXT 儲存",
+      "pos": [1310, 150],
+      "size": [130, 60],
+      "tag": "磁碟儲存"
+    },
+    {
+      "id": "task_completed",
+      "type": "cloud",
+      "label": "任務全員達成！",
+      "sublabel": "所選車次全數訂妥滿額",
+      "pos": [1310, 260],
+      "size": [130, 60],
+      "tag": "自動終止"
+    },
+    {
+      "id": "cooldown_wait",
+      "type": "messagebus",
+      "label": "輪詢冷卻倒數",
+      "sublabel": "智能倒數 (支援中斷信號)",
+      "pos": [880, 410],
+      "size": [130, 60],
+      "tag": "等待間隔"
+    },
+    {
+      "id": "stop_listener",
+      "type": "security",
+      "label": "停止信號監聽",
+      "sublabel": "檢測 is_running 旗標變更",
+      "pos": [460, 410],
+      "size": [130, 60],
+      "tag": "優雅停止"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "任務初始化與批次規劃層",
+      "wraps": ["worker_start", "batch_planner", "round_counter"]
+    },
+    {
+      "kind": "security-group",
+      "label": "引擎調度與回饋判定層",
+      "wraps": ["engine_dispatch", "result_eval", "cooldown_wait"]
+    },
+    {
+      "kind": "region",
+      "label": "進度結算與儲存終止層",
+      "wraps": ["progress_update", "save_ticket_store", "task_completed", "stop_listener"]
+    }
+  ],
+  "connections": [
+    { "id": "w1", "from": "worker_start", "to": "batch_planner", "variant": "emphasis" },
+    { "id": "w2", "from": "batch_planner", "to": "round_counter", "variant": "emphasis" },
+    { "id": "w3", "from": "round_counter", "to": "engine_dispatch", "variant": "emphasis" },
+    { "id": "w4", "from": "engine_dispatch", "to": "result_eval", "variant": "emphasis" },
+    { "id": "w5", "from": "result_eval", "to": "progress_update", "label": "訂票成功", "variant": "emphasis", "fromSide": "top", "toSide": "left" },
+    { "id": "w6", "from": "progress_update", "to": "save_ticket_store", "variant": "emphasis" },
+    { "id": "w7", "from": "save_ticket_store", "to": "task_completed", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "w8", "from": "progress_update", "to": "cooldown_wait", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "w9", "from": "result_eval", "to": "cooldown_wait", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "w10", "from": "cooldown_wait", "to": "round_counter", "label": "下輪巡檢", "variant": "emphasis", "fromSide": "left", "toSide": "bottom" },
+    { "id": "w11", "from": "stop_listener", "to": "round_counter", "label": "停止退出", "variant": "security", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "撿票調度策略",
+      "items": [
+        "整筆模式 (Single)：一次向票務系統提出最多 3 班車次之整筆多志願序請求，適合固定行程搶票。",
+        "拆單模式 (Split)：若張數多或目標分散，將車次拆解為各別獨立請求批次，平行最大化撿票機會。",
+        "滿額動態出列：任一車次累計張數達到目標上限，立即自動從待訂佇列中剔除，避免重複訂購超額。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "持久化狀態與斷點續訂",
+      "items": [
+        "實時狀態同步：每輪檢測結果及倒數秒數立即透過執行緒安全鎖寫入 SQLite 資料庫 (autopilot.db)。",
+        "票券自動保存：成功產生電腦代碼之票券立即寫入 SQLite tickets 表，附帶完整車次、座位與付款期限並關聯 Task 與 Session。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "全生命週期安全控管",
+      "items": [
+        "無鎖中斷感知：輪詢冷卻等待期間採分段感知（每 0.5s 檢查一次 is_running 旗標），使用者一按停止能立馬終止。",
+        "背景資源安全清理：任務停止或全員滿額達成時，主動通知並關閉常駐 Chrome 實例，杜絕記憶體洩漏。"
+      ]
+    }
+  ]
+}
